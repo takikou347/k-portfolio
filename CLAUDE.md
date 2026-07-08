@@ -38,6 +38,20 @@
 - デプロイと本番操作は CI (main への push) に委ねる
 - 不可逆な操作 (履歴改変、リソース削除) はしない — hooks でも遮断される
 
+## Git 運用 (Issue 駆動)
+
+- **1 Issue = 1 ブランチ = 1 PR**。PR 本文に `Closes #<番号>` を必ず書き、複数 Issue を 1 PR にまとめない
+- **Issue がない修正・機能追加は、先に Issue を作成してから着手する** (背景と完了条件を書く)。
+  タイポ修正などの些末な変更でも省略しない — Issue が作業の記録になる
+- ブランチは最新の main から切り、`<type>/issue-<番号>-<説明>` 形式にする
+  (例: `feat/issue-12-reaction-emoji`)。夜間バッチは `auto/issue-<番号>` を使う
+- コミットメッセージは Conventional Commits 形式: `feat: / fix: / docs: / style: / refactor: /
+  perf: / test: / chore: / ci:` + 末尾に `(#<Issue番号>)` (例: `feat: リアクションに 🎉 を追加 (#12)`)。
+  プレフィックスは hooks (guard-bash.sh) が決定論的に検査する
+- 1 コミット = 1 論理変更。無関係な変更を混ぜない
+- main へ直接 push しない。PR の merge は常に人間の担当
+- 具体的な手順は issue-driven スキルに従う (実装部分は vertical-slice スキル)
+
 ## リアルタイム設計の要点 (必読)
 
 - DO は必ず WebSocket Hibernation API (`ctx.acceptWebSocket`) を使う。`ws.accept()` は禁止
