@@ -42,4 +42,5 @@ jobs:
                対象外にしたい場合は needs-info ラベルを付けてください」と案内する
             コードの変更・PR 作成はこのワークフローでは行わない。
           claude_args: |
+            --model haiku
             --max-turns 12

@@ -49,4 +49,5 @@ jobs:
 
             レポートは日付・リクエスト数・エラー率・使用率・所見の 5 行以内で簡潔に。
           claude_args: |
+            --model haiku
             --max-turns 15
