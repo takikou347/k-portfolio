@@ -21,9 +21,15 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
      テンプレート「Edit Cloudflare Workers」
    - `CLOUDFLARE_ACCOUNT_ID` — Workers ページ右側の Account ID
 
+### ブランチ保護 (推奨)
+3. Settings > Branches (Rulesets) で `main` と `develop` に保護ルールを設定:
+   - Require a pull request before merging (直 push 禁止)
+   - Restrict deletions (ブランチ削除禁止 — リリース PR の merge 後に develop が消えるのを防ぐ)
+   - ローカル側は hooks (guard-bash.sh) が同じ制約を遮断するため、二重の防御になる
+
 ### 反映
-3. Actions タブから Deploy を手動再実行 (または空コミットを push) → 本番公開
-4. 以降の無人運用が自動で始まる:
+4. Actions タブから Deploy を手動再実行 (または develop → main のリリース PR を merge) → 本番公開
+5. 以降の無人運用が自動で始まる:
    - Issue 起票 → 即時トリアージ (ラベル + 初期仮説)
    - 毎日 03:00 JST → 未対応 Issue を自動処理 (修正 PR 作成 / 回答 / 計画コメント)
    - 毎朝 09:00 JST → Cloudflare ヘルスチェック報告

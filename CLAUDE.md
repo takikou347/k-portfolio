@@ -51,18 +51,33 @@
 - 長時間の自律実行 (goal / 夜間バッチ) でも Stop hook の品質ゲートと Git 運用ルールは常に適用される。
   着手前に完了条件を明示し、検証はワークフローの verify ステージか code-reviewer に委ねる
 
-## Git 運用 (Issue 駆動)
+## Git 運用 (Issue 駆動 + develop フロー)
+
+### ブランチ戦略
+
+- **main = デプロイブランチ**。main への push で本番デプロイが走る。リリース以外で触らない
+- **develop = 統合ブランチ**。日々の修正・機能追加はすべて develop に集める
+- **main と develop への直 push は禁止** (hooks が決定論的に遮断)。変更は必ず PR 経由
+- **main / develop はマージ後も削除しない** (永続ブランチ)。Issue ブランチはマージ後に消してよい
+
+### 日々の開発
 
 - **1 Issue = 1 ブランチ = 1 PR**。PR 本文に `Closes #<番号>` を必ず書き、複数 Issue を 1 PR にまとめない
 - **Issue がない修正・機能追加は、先に Issue を作成してから着手する** (背景と完了条件を書く)。
   タイポ修正などの些末な変更でも省略しない — Issue が作業の記録になる
-- ブランチは最新の main から切り、`<type>/issue-<番号>-<説明>` 形式にする
-  (例: `feat/issue-12-reaction-emoji`)。夜間バッチは `auto/issue-<番号>` を使う
+- ブランチは**最新の develop から**切り、`<type>/issue-<番号>-<説明>` 形式にする
+  (例: `feat/issue-12-reaction-emoji`)。夜間バッチは `auto/issue-<番号>` を使う。**PR の base は develop**
 - コミットメッセージは Conventional Commits 形式: `feat: / fix: / docs: / style: / refactor: /
   perf: / test: / chore: / ci:` + 末尾に `(#<Issue番号>)` (例: `feat: リアクションに 🎉 を追加 (#12)`)。
   プレフィックスは hooks (guard-bash.sh) が決定論的に検査する
-- 1 コミット = 1 論理変更。無関係な変更を混ぜない
-- main へ直接 push しない。PR の merge は常に人間の担当
+- 1 コミット = 1 論理変更。無関係な変更を混ぜない。PR の merge は常に人間の担当
+
+### リリース (develop → main)
+
+- 対象の Issue がすべて develop に入ったタイミングで、**develop → main のリリース PR** を作成する
+- リリース PR の本文に含まれる Issue / PR を列挙する — これがリリースノートになる
+  (merge 後に GitHub Release を作成すると `.github/release.yml` のカテゴリで自動生成できる)
+- merge は人間の担当。merge されると deploy.yml が本番デプロイを実行する
 - 具体的な手順は issue-driven スキルに従う (実装部分は vertical-slice スキル)
 
 ## リアルタイム設計の要点 (必読)

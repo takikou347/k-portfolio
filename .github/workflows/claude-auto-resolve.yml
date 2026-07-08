@@ -48,16 +48,17 @@ jobs:
             ## 各 Issue の処理
             - 着手時にラベル in-progress を付与する
             - **bug / enhancement**: CLAUDE.md と .claude/rules/ の規約・vertical-slice の手順に従い
-              ブランチ `auto/issue-<番号>` で実装する。テストを含め、
+              **develop から切った**ブランチ `auto/issue-<番号>` で実装する。テストを含め、
               `pnpm typecheck && pnpm lint && pnpm test` を全パスさせてから
-              `Closes #<番号>` 付きの PR を作成し、Issue に PR リンクと変更概要をコメントする
+              **base を develop にして** `Closes #<番号>` 付きの PR を作成し、
+              Issue に PR リンクと変更概要をコメントする
             - **question**: コードを調査して回答コメントを投稿し、解決したら close する
             - **規模が大きい / 仕様が不明瞭**: 実装せず、対応計画または具体的な質問をコメントし、
               needs-info ラベルを付けて in-progress を外す
 
             ## 禁止事項
             - PR を自分で merge しない (merge は人間の担当)
-            - main に直接 push しない
+            - main / develop に直接 push しない (PR の base は develop)
             - 検証未通過のまま PR を作らない
           claude_args: |
             --model sonnet
