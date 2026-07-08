@@ -1,0 +1,63 @@
+name: Claude Auto Resolve Issues
+
+on:
+  schedule:
+    - cron: "0 18 * * *"   # 毎日 03:00 JST に未対応 Issue を自動処理
+  workflow_dispatch:        # 発表デモ用に手動起動も可
+
+concurrency:
+  group: claude-auto-resolve
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check secrets
+        id: gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (SETUP.md 参照)"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            あなたはこのリポジトリの夜間バッチ担当です。未対応の Issue を自動処理してください。
+
+            ## 対象の選定
+            1. `gh issue list --state open --json number,title,labels` で一覧を取得
+            2. 除外: ラベル needs-info / in-progress / health-report / report が付いたもの、
+               およびオープンな PR がリンク済みのもの (`gh pr list` で確認)
+            3. 残りを P1 > P2 > P3 の順に並べ、上から最大 2 件だけ処理する (コスト管理)
+
+            ## 各 Issue の処理
+            - 着手時にラベル in-progress を付与する
+            - **bug / enhancement**: CLAUDE.md と .claude/rules/ の規約・vertical-slice の手順に従い
+              ブランチ `auto/issue-<番号>` で実装する。テストを含め、
+              `pnpm typecheck && pnpm lint && pnpm test` を全パスさせてから
+              `Closes #<番号>` 付きの PR を作成し、Issue に PR リンクと変更概要をコメントする
+            - **question**: コードを調査して回答コメントを投稿し、解決したら close する
+            - **規模が大きい / 仕様が不明瞭**: 実装せず、対応計画または具体的な質問をコメントし、
+              needs-info ラベルを付けて in-progress を外す
+
+            ## 禁止事項
+            - PR を自分で merge しない (merge は人間の担当)
+            - main に直接 push しない
+            - 検証未通過のまま PR を作らない
+          claude_args: |
+            --max-turns 60

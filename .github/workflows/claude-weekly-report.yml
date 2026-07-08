@@ -1,0 +1,49 @@
+name: Claude Weekly Report
+
+on:
+  schedule:
+    - cron: "0 23 * * 4"   # 毎週金曜 08:00 JST
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      id-token: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check secrets
+        id: gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Secrets 未設定のためスキップ (SETUP.md 参照)"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            このリポジトリの週次運用レポートを作成してください。
+            1. `gh pr list --state merged --search "merged:>=$(date -d '7 days ago' +%Y-%m-%d)"` と
+               `gh issue list --state all` で直近 7 日の PR / Issue を集計する
+            2. git log で直近 7 日の変更概要を把握する
+            3. Cloudflare GraphQL Analytics API で直近 7 日のリクエスト推移・エラー率を取得する
+            4. 「[report] 週次レポート YYYY-MM-DD」という Issue を作成する。構成:
+               今週の変更 (3行以内) / 稼働状況 (リクエスト・エラー率・無料枠使用率) /
+               未解決 Issue の状況 / 来週の推奨アクション (あれば)
+            全体で 15 行以内。数字は必ず実データに基づき、取得できなかった項目は「取得失敗」と明記する。
+          claude_args: |
+            --max-turns 15
