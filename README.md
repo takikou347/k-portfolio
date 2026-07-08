@@ -25,15 +25,15 @@
 
 「決定論 (deterministic) と確率論 (probabilistic) の使い分け」。
 
-|仕組み           |性質           |担当                                                        |
-|--------------|-------------|----------------------------------------------------------|
-|hooks         |決定論的 (100%実行)|破壊的操作の遮断、Stop 品質ゲート (検証が通るまで完了不可)                         |
-|GitHub Actions|決定論的         |CI 検証、デプロイ (本番操作はローカルの Claude に触らせない)                     |
-|CLAUDE.md     |常時ロード / 確率的  |コマンド、構造、リアルタイム設計の要点                                       |
-|rules         |glob 一致時のみロード|client / realtime (DO) / components / testing / infra の各規約|
-|skills        |呼び出し時のみロード   |縦切り実装手順                                                   |
-|agents        |隔離コンテキスト     |レビュー (実装者と採点者の分離)、テスト全件実行                                 |
-|DESIGN.md     |参照ドキュメント     |ビジュアルの単一の正 (rules から強制参照)                                 |
+| 仕組み | 性質 | 担当 |
+|---|---|---|
+| hooks | 決定論的 (100%実行) | 破壊的操作の遮断、Stop 品質ゲート (検証が通るまで完了不可) |
+| GitHub Actions | 決定論的 | CI 検証、デプロイ (本番操作はローカルの Claude に触らせない) |
+| CLAUDE.md | 常時ロード / 確率的 | コマンド、構造、リアルタイム設計の要点 |
+| rules | glob 一致時のみロード | client / realtime (DO) / components / testing / infra の各規約 |
+| skills | 呼び出し時のみロード | 縦切り実装手順 |
+| agents | 隔離コンテキスト | レビュー (実装者と採点者の分離)、テスト全件実行 |
+| DESIGN.md | 参照ドキュメント | ビジュアルの単一の正 (rules から強制参照) |
 
 ## ファイル構成
 
@@ -75,4 +75,4 @@ scripts/hooks/{guard-bash,post-edit-check,verify-stop}.sh
   Workers Paid に加入しない限り Cloudflare からの請求は構造的に発生しない
 - アプリ側のサージ防御 (接続数上限 100 / 受信レート制限 / スロットル) を外さないこと
 - 仕様は更新が速い。導入前に公式ドキュメントで最新を確認:
-  <https://code.claude.com/docs> / <https://developers.cloudflare.com/durable-objects/>
+  https://code.claude.com/docs / https://developers.cloudflare.com/durable-objects/

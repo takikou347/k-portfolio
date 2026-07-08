@@ -10,30 +10,25 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 ## 1. 実装完了後の環境準備 (約15分)
 
 ### アカウント
-
-- Cloudflare アカウント (無料プラン): <https://dash.cloudflare.com/sign-up>
+- Cloudflare アカウント (無料プラン): https://dash.cloudflare.com/sign-up
 - Anthropic API キー、または Claude Pro/Max なら `claude setup-token` で OAuth トークン生成
 
 ### GitHub 連携
-
 1. Claude Code で `/install-github-app` を実行し、案内に従って GitHub App を導入
 2. リポジトリの Settings > Secrets and variables > Actions に登録:
-
-- `ANTHROPIC_API_KEY` (または workflows を `claude_code_oauth_token` に書き換えて `CLAUDE_CODE_OAUTH_TOKEN`)
-- `CLOUDFLARE_API_TOKEN` — ダッシュボード > My Profile > API Tokens、
-  テンプレート「Edit Cloudflare Workers」
-- `CLOUDFLARE_ACCOUNT_ID` — Workers ページ右側の Account ID
+   - `ANTHROPIC_API_KEY` (または workflows を `claude_code_oauth_token` に書き換えて `CLAUDE_CODE_OAUTH_TOKEN`)
+   - `CLOUDFLARE_API_TOKEN` — ダッシュボード > My Profile > API Tokens、
+     テンプレート「Edit Cloudflare Workers」
+   - `CLOUDFLARE_ACCOUNT_ID` — Workers ページ右側の Account ID
 
 ### 反映
-
-1. Actions タブから Deploy を手動再実行 (または空コミットを push) → 本番公開
-2. 以降の無人運用が自動で始まる:
-
-- Issue 起票 → 即時トリアージ (ラベル + 初期仮説)
-- 毎日 03:00 JST → 未対応 Issue を自動処理 (修正 PR 作成 / 回答 / 計画コメント)
-- 毎朝 09:00 JST → Cloudflare ヘルスチェック報告
-- 毎週金曜 → 週次レポート
-- merge は常に人間の担当
+3. Actions タブから Deploy を手動再実行 (または空コミットを push) → 本番公開
+4. 以降の無人運用が自動で始まる:
+   - Issue 起票 → 即時トリアージ (ラベル + 初期仮説)
+   - 毎日 03:00 JST → 未対応 Issue を自動処理 (修正 PR 作成 / 回答 / 計画コメント)
+   - 毎朝 09:00 JST → Cloudflare ヘルスチェック報告
+   - 毎週金曜 → 週次レポート
+   - merge は常に人間の担当
 
 ## 2. 課金リスクについて (重要)
 
