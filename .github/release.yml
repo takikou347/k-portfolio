@@ -1,0 +1,16 @@
+# GitHub Release の自動生成ノート設定 (develop → main のリリース PR merge 後に使用)
+changelog:
+  exclude:
+    labels:
+      - health-report
+      - report
+  categories:
+    - title: 新機能
+      labels:
+        - enhancement
+    - title: バグ修正
+      labels:
+        - bug
+    - title: その他
+      labels:
+        - "*"
