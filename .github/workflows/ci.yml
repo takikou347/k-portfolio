@@ -11,19 +11,33 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      # scaffold 前 (package.json なし) は検証をスキップ (verify-stop.sh と同じ基準)
+      - name: Check scaffold
+        id: gate
+        run: |
+          if [ ! -f package.json ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::package.json 未作成 (scaffold 前) のため CI をスキップ"
+          fi
       - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           version: 9
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.skip != 'true'
       - name: Typecheck
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm typecheck
       - name: Lint
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm lint
       - name: Test
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm test
 
   e2e:
@@ -31,15 +45,27 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Check scaffold
+        id: gate
+        run: |
+          if [ ! -f package.json ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::package.json 未作成 (scaffold 前) のため CI をスキップ"
+          fi
       - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           version: 9
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.skip != 'true'
       - name: Install Playwright browsers
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm exec playwright install --with-deps chromium
       - name: E2E
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm test:e2e
