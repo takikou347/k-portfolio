@@ -60,4 +60,5 @@ jobs:
             - main に直接 push しない
             - 検証未通過のまま PR を作らない
           claude_args: |
+            --model sonnet
             --max-turns 60

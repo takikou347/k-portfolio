@@ -39,4 +39,5 @@ jobs:
             .claude/rules/ の規約違反・セキュリティ・型・テスト欠落を [must] / [nits] で指摘してください。
             問題がなければ「must 指摘なし」とだけコメントしてください。
           claude_args: |
+            --model sonnet
             --max-turns 15
