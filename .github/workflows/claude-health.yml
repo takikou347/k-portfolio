@@ -1,0 +1,52 @@
+name: Claude Daily Health Check
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 毎日 09:00 JST
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check secrets
+        id: gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Secrets 未設定のためスキップ (SETUP.md 参照)"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+      - uses: anthropics/claude-code-action@v1
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            あなたはこのサービス (Cloudflare Workers 上の「こくばん」) の運用担当です。
+            日次ヘルスチェックを実施してください。
+
+            1. Cloudflare GraphQL Analytics API (https://api.cloudflare.com/client/v4/graphql、
+               認証は環境変数 CLOUDFLARE_API_TOKEN の Bearer、アカウントは CLOUDFLARE_ACCOUNT_ID)
+               で直近 24 時間の Worker のリクエスト数・エラー数・ステータス内訳を取得する
+            2. 無料枠 (10万リクエスト/日) に対する使用率と、エラー率 (>1% で異常) を判定する
+            3. `gh issue list --label health-report --state open` で既存レポート Issue を探し、
+               あれば今日の結果をコメント追記、なければ「[health] 日次ヘルスレポート」を
+               ラベル health-report 付きで作成する
+            4. 異常 (使用率 70% 超 / エラー率 1% 超 / API 取得失敗) がある場合は、
+               「[alert] 」で始まる別 Issue を作成し、原因の仮説と対応案を書く
+
+            レポートは日付・リクエスト数・エラー率・使用率・所見の 5 行以内で簡潔に。
+          claude_args: |
+            --max-turns 15

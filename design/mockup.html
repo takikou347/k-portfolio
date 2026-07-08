@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>こくばん — モックアップ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Zen+Kaku+Gothic+New:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --color-board:#2E4A3E; --color-board-deep:#23392F; --color-frame:#8A6A48;
+  --color-chalk-white:#F2F0E6; --color-chalk-pink:#E8A0A8; --color-chalk-yellow:#EFD98B; --color-chalk-blue:#9FC3D8;
+  --color-paper-cream:#F6EFDC; --color-paper-rose:#F2D5D0; --color-paper-sky:#D3E4EC;
+  --color-magnet:#C0392B; --color-ink:#3A3630;
+  --font-hand:"Yusei Magic",sans-serif; --font-ui:"Zen Kaku Gothic New",sans-serif; --font-mono:"IBM Plex Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font-ui);color:var(--color-chalk-white)}
+
+/* 黒板 */
+#stage{position:fixed;inset:0;
+  background:radial-gradient(ellipse at 50% 40%,var(--color-board) 60%,var(--color-board-deep));
+  border-top:14px solid var(--color-frame);border-bottom:0}
+#stage::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:repeating-conic-gradient(rgba(255,255,255,.012) 0% .0001%,transparent .0002% .0004%)}
+#draw{position:absolute;inset:0;cursor:crosshair;touch-action:none}
+
+/* 接続人数 */
+#presence{position:fixed;top:26px;right:18px;font-family:var(--font-mono);font-size:12px;opacity:.75}
+
+/* プレースホルダー */
+#placeholder{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);
+  font-family:var(--font-hand);font-size:34px;opacity:.28;pointer-events:none;letter-spacing:.1em}
+
+/* 画用紙の付箋 */
+.paper{position:absolute;width:180px;min-height:120px;padding:26px 16px 14px;
+  background:var(--color-paper-cream);color:var(--color-ink);
+  font-family:var(--font-hand);font-size:15px;line-height:1.6;
+  border-radius:7px 12px 9px 14px;
+  box-shadow:0 2px 5px rgba(0,0,0,.35);cursor:grab;user-select:none;
+  transition:transform .12s ease,box-shadow .12s ease}
+.paper.rose{background:var(--color-paper-rose)}
+.paper.sky{background:var(--color-paper-sky)}
+.paper::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  width:16px;height:16px;border-radius:50%;background:var(--color-magnet);
+  box-shadow:inset -2px -2px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.4)}
+.paper.drag{cursor:grabbing;transform:rotate(1.5deg) scale(1.02);box-shadow:0 12px 22px rgba(0,0,0,.45)}
+.paper.snap{animation:snap .14s ease}
+@keyframes snap{from{transform:scale(1.02)}to{transform:scale(1)}}
+
+/* 他人のカーソル (疑似) */
+.cursor{position:absolute;pointer-events:none;transition:transform 1.4s cubic-bezier(.3,.8,.4,1)}
+.cursor .dot{width:14px;height:14px;border-radius:50%;background:var(--color-magnet);
+  box-shadow:inset -2px -2px 3px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.5)}
+.cursor .name{font-family:var(--font-hand);font-size:13px;margin-top:4px;
+  padding:1px 8px;background:rgba(0,0,0,.28);border-radius:8px;white-space:nowrap}
+.cursor.c2 .dot{background:#3D6FA8}
+
+/* チョーク受け (ツールバー) */
+#tray{position:fixed;left:0;right:0;bottom:0;height:58px;display:flex;align-items:center;
+  justify-content:center;gap:14px;background:var(--color-frame);
+  box-shadow:0 -3px 8px rgba(0,0,0,.3);z-index:10}
+.chalk{width:44px;height:16px;border-radius:3px;border:none;cursor:pointer;
+  box-shadow:0 2px 3px rgba(0,0,0,.35),inset 0 -3px 0 rgba(0,0,0,.12);transition:transform .1s}
+.chalk:hover{transform:translateY(-4px)}
+.chalk.on{transform:translateY(-7px);outline:2px solid var(--color-chalk-yellow);outline-offset:3px}
+.chalk.white{background:var(--color-chalk-white)} .chalk.pink{background:var(--color-chalk-pink)}
+.chalk.yellow{background:var(--color-chalk-yellow)} .chalk.blue{background:var(--color-chalk-blue)}
+.tool{font-family:var(--font-ui);font-size:12px;font-weight:500;color:var(--color-chalk-white);
+  background:rgba(0,0,0,.22);border:none;border-radius:6px;padding:9px 14px;cursor:pointer}
+.tool:hover{background:rgba(0,0,0,.34)}
+.tool.on{outline:2px solid var(--color-chalk-yellow);outline-offset:2px}
+.emoji{font-size:18px;background:transparent;border:none;cursor:pointer;transition:transform .1s}
+.emoji:hover{transform:scale(1.3)}
+.chalk:focus-visible,.tool:focus-visible,.emoji:focus-visible{outline:2px solid var(--color-chalk-yellow);outline-offset:3px}
+
+/* リアクション演出 */
+.pop{position:absolute;pointer-events:none;font-size:30px;animation:rise 1.2s ease-out forwards}
+@keyframes rise{from{opacity:1;transform:translateY(0) scale(.7)}to{opacity:0;transform:translateY(-90px) scale(1.4)}}
+.dust{position:absolute;width:3px;height:3px;border-radius:50%;background:var(--color-chalk-white);
+  pointer-events:none;animation:fall .9s ease-in forwards}
+@keyframes fall{from{opacity:.9}to{opacity:0;transform:translateY(26px)}}
+
+@media (prefers-reduced-motion:reduce){
+  .paper,.cursor{transition:none}.paper.snap,.pop,.dust{animation:none}
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="draw"></canvas>
+  <p id="placeholder">じゆうに かいてね</p>
+  <div id="presence">3 人が見ています</div>
+
+  <div class="paper" style="left:12%;top:16%">きょうの ぎだい:<br>はっぴょうの こうせい</div>
+  <div class="paper rose" style="left:64%;top:22%">デモは QR で<br>みんな さんか!</div>
+  <div class="paper sky" style="left:38%;top:58%">ハーネスの ずを<br>ここに はる →</div>
+
+  <div class="cursor" id="cur1" style="transform:translate(70vw,60vh)"><div class="dot"></div><div class="name">はなこ</div></div>
+  <div class="cursor c2" id="cur2" style="transform:translate(25vw,35vh)"><div class="dot"></div><div class="name">たろう</div></div>
+</div>
+
+<nav id="tray" aria-label="チョーク受け">
+  <button class="chalk white on" data-c="#F2F0E6" aria-label="白チョーク"></button>
+  <button class="chalk pink" data-c="#E8A0A8" aria-label="桃チョーク"></button>
+  <button class="chalk yellow" data-c="#EFD98B" aria-label="黄チョーク"></button>
+  <button class="chalk blue" data-c="#9FC3D8" aria-label="青チョーク"></button>
+  <button class="tool" id="eraser">黒板消し</button>
+  <span style="width:10px"></span>
+  <button class="emoji" data-e="👏">👏</button>
+  <button class="emoji" data-e="✨">✨</button>
+  <button class="emoji" data-e="💮">💮</button>
+  <button class="emoji" data-e="❤️">❤️</button>
+</nav>
+
+<script>
+const cv=document.getElementById("draw"),ctx=cv.getContext("2d");
+let strokes=[],cur=null,color="#F2F0E6",erasing=false,drewOnce=false;
+function resize(){cv.width=innerWidth;cv.height=innerHeight;render()}
+addEventListener("resize",resize);
+
+// チョークの描き味: 低透明度の重ね描き + ジッター
+function chalkSeg(a,b,c){
+  ctx.strokeStyle=c;ctx.lineCap="round";
+  for(let i=0;i<3;i++){
+    ctx.globalAlpha=.28;ctx.lineWidth=3.4-i;
+    ctx.beginPath();
+    ctx.moveTo(a.x+(Math.random()-.5)*1.6,a.y+(Math.random()-.5)*1.6);
+    ctx.lineTo(b.x+(Math.random()-.5)*1.6,b.y+(Math.random()-.5)*1.6);
+    ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+}
+function render(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for(const s of strokes)for(let i=1;i<s.pts.length;i++)chalkSeg(s.pts[i-1],s.pts[i],s.color);
+}
+function dust(x,y,n=3){
+  for(let i=0;i<n;i++){
+    const d=document.createElement("div");d.className="dust";
+    d.style.left=(x+(Math.random()-.5)*12)+"px";d.style.top=(y+6)+"px";
+    stage.appendChild(d);setTimeout(()=>d.remove(),900);
+  }
+}
+function nearStroke(x,y){
+  return strokes.findIndex(s=>s.pts.some(p=>Math.hypot(p.x-x,p.y-y)<14));
+}
+cv.addEventListener("pointerdown",e=>{
+  if(e.target!==cv)return;
+  cv.setPointerCapture(e.pointerId);
+  if(erasing){const i=nearStroke(e.clientX,e.clientY);if(i>=0){strokes.splice(i,1);render()}return}
+  cur={color,pts:[{x:e.clientX,y:e.clientY}]};strokes.push(cur);
+  if(!drewOnce){drewOnce=true;placeholder.style.display="none"}
+});
+cv.addEventListener("pointermove",e=>{
+  if(erasing&&e.buttons){const i=nearStroke(e.clientX,e.clientY);if(i>=0){strokes.splice(i,1);render()}return}
+  if(!cur)return;
+  const p={x:e.clientX,y:e.clientY},last=cur.pts[cur.pts.length-1];
+  cur.pts.push(p);chalkSeg(last,p,cur.color);
+  if(Math.random()<.3)dust(p.x,p.y,1);
+});
+addEventListener("pointerup",()=>cur=null);
+
+// チョーク選択 / 黒板消し
+document.querySelectorAll(".chalk").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".chalk").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");color=b.dataset.c;erasing=false;eraser.classList.remove("on");
+  cv.style.cursor="crosshair";
+}));
+eraser.addEventListener("click",()=>{
+  erasing=!erasing;eraser.classList.toggle("on",erasing);
+  cv.style.cursor=erasing?"cell":"crosshair";
+});
+
+// リアクション
+document.querySelectorAll(".emoji").forEach(b=>b.addEventListener("click",()=>{
+  const x=innerWidth/2+(Math.random()-.5)*160,y=innerHeight-140;
+  const p=document.createElement("div");p.className="pop";p.textContent=b.dataset.e;
+  p.style.left=x+"px";p.style.top=y+"px";stage.appendChild(p);
+  dust(x+14,y+20,6);setTimeout(()=>p.remove(),1200);
+}));
+
+// 付箋ドラッグ
+document.querySelectorAll(".paper").forEach(pp=>{
+  let off=null;
+  pp.addEventListener("pointerdown",e=>{
+    off={x:e.clientX-pp.offsetLeft,y:e.clientY-pp.offsetTop};
+    pp.classList.add("drag");pp.setPointerCapture(e.pointerId);
+  });
+  pp.addEventListener("pointermove",e=>{
+    if(!off)return;pp.style.left=(e.clientX-off.x)+"px";pp.style.top=(e.clientY-off.y)+"px";
+  });
+  pp.addEventListener("pointerup",()=>{
+    off=null;pp.classList.remove("drag");
+    pp.classList.add("snap");setTimeout(()=>pp.classList.remove("snap"),160);
+  });
+});
+
+// 疑似ライブカーソル (本実装では WebSocket で他人の座標を受信)
+function wander(el){
+  const x=10+Math.random()*80,y=12+Math.random()*66;
+  el.style.transform=`translate(${x}vw,${y}vh)`;
+  setTimeout(()=>wander(el),1600+Math.random()*1800);
+}
+wander(document.getElementById("cur1"));wander(document.getElementById("cur2"));
+
+resize();
+</script>
+</body>
+</html>
