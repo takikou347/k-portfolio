@@ -111,9 +111,19 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 あわせて行うこと:
 
 1. Claude Code で `/install-github-app` を実行して GitHub App を導入 (@claude 応答・自動レビュー用)
-2. Settings > Rulesets で `main` と `develop` に保護ルールを設定 (推奨):
-   Require a pull request before merging + Restrict deletions。
-   ローカル側は hooks (`scripts/hooks/guard-bash.sh`) が同じ制約を遮断するため二重の防御になる
+2. **ブランチ保護 (必須 — 環境準備の一部)**。Settings > Rulesets で `main` と `develop` に設定する:
+   - **Require a pull request before merging** — 直 push 禁止（auto-resolve が直 push できない）
+   - **Restrict deletions** — ブランチ削除禁止（リリース PR merge 後に develop が消えるのを防ぐ）
+   - `main` は加えて **人間の承認 1 件以上を必須 (Require approvals)** — develop → main のリリース PR
+     merge の最終ゲートを人間に固定する
+   - `gh auth login` 済みなら補助スクリプトで一括作成できる:
+     `bash scripts/setup-branch-protection.sh <owner>/<repo>`（冪等。手動設定した場合は不要）
+
+   > **なぜ必須か**: ローカルでは `scripts/hooks/guard-bash.sh` が main/develop への直 push・不正ブランチ・
+   > 非 Conventional コミットを 100% 遮断する。しかし `claude-auto-resolve.yml` は `contents: write` と
+   > PR merge 能力を持ち、**CI ランナー上では guard-bash.sh は発火しない**。「直 push しない」「リリース PR を
+   > merge しない」がプロンプトの禁止事項だけで担保されている状態では逸脱経路が理論上残るため、ブランチ保護を
+   > クラウド自動化レイヤーの決定論的な最後の砦として必須とする（ローカル hooks と合わせて二重の防御）。
 
 ### 課金リスクについて
 
@@ -181,5 +191,7 @@ CLAUDE.md               Claude Code へのプロジェクト指示 (常時ロー
 - hooks はローカルでシェルを実行する。`.claude/settings.json` を共有する際はチームレビューを通すこと
 - claude-*.yml のワークフローは書き込み権限を持つ。フォークからの PR で secrets が
   漏れない設計を維持すること
+- クラウド自動化の「直 push / リリース PR merge 禁止」は、プロンプトだけでなく GitHub のブランチ保護でも
+  担保する（必須設定。`guard-bash.sh` は CI ランナー上では発火しないため。→「デプロイと Secrets」）
 - アプリ側のサージ防御 (接続数上限 / 受信レート制限 / スロットル) を外さないこと
 - 仕様の一次情報: https://code.claude.com/docs / https://developers.cloudflare.com/durable-objects/
