@@ -36,3 +36,35 @@ test('付箋の作成・編集・移動が同期される', async ({ browser }) 
   const finalPos = await posOf(b);
   await expect.poll(() => posOf(a)).toBe(finalPos);
 });
+
+test('付箋のサイズ・文字サイズ変更が同期される', async ({ browser }) => {
+  const board = uniqueBoard('e2e-sticky-size');
+  const a = await openBoard(browser, board, 'はなこ');
+  const b = await openBoard(browser, board, 'たろう', { color: 'blue' });
+  await expect(a.locator('.presence-badge')).toHaveText(/2 人/);
+
+  // A が付箋を作る (作成直後は選択状態でミニツールバーが出る)
+  await a.getByRole('button', { name: '付箋', exact: true }).click();
+  await a.mouse.click(500, 400);
+  await expect(a.locator('.paper-editor')).toBeVisible();
+  await a.keyboard.press('Escape');
+  await expect(b.locator('.paper')).toBeVisible();
+
+  const widthOf = (page: typeof a) =>
+    page.locator('.paper').evaluate((el) => (el as HTMLElement).offsetWidth);
+  const fontOf = (page: typeof a) =>
+    page
+      .locator('.paper')
+      .evaluate((el) => parseFloat(getComputedStyle(el as HTMLElement).fontSize));
+  const beforeW = await widthOf(b);
+  const beforeF = await fontOf(b);
+
+  // A が「大きく」「文字を大きく」を押す
+  await expect(a.locator('.sticky-controls')).toBeVisible();
+  await a.getByRole('button', { name: '付箋を大きくする' }).click();
+  await a.getByRole('button', { name: '文字を大きくする' }).click();
+
+  // B にサイズ・文字サイズが同期される
+  await expect.poll(() => widthOf(b)).toBeGreaterThan(beforeW);
+  await expect.poll(() => fontOf(b)).toBeGreaterThan(beforeF);
+});

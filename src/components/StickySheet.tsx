@@ -1,7 +1,7 @@
-import { Trash2 } from 'lucide-react';
+import { Maximize2, Minimize2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { STICKY_TEXT_MAX } from '../../shared/limits';
-import { PAPER_COLORS } from '../lib/papers';
+import { STICKY_FONT_STEP, STICKY_SIZE_STEP, STICKY_TEXT_MAX } from '../../shared/limits';
+import { nextStickyDims, PAPER_COLORS } from '../lib/papers';
 import { useStore } from '../store/store';
 
 /**
@@ -27,6 +27,12 @@ export default function StickySheet() {
     setSheetSticky(null);
   };
 
+  const resize = (sizeDelta: number, fontDelta: number) => {
+    if (!sticky) return;
+    const { w, h, fontSize } = nextStickyDims(sticky, sizeDelta, fontDelta);
+    useStore.getState().applyLocalOp({ type: 'resizeSticky', id: sticky.id, w, h, fontSize });
+  };
+
   return (
     <>
       <button type="button" className="sheet-overlay" aria-label="編集を閉じる" onClick={close} />
@@ -40,6 +46,50 @@ export default function StickySheet() {
           aria-label="付箋のテキスト"
           onChange={(e) => setDraft(e.target.value)}
         />
+        <div className="sticky-sheet-size" role="group" aria-label="付箋のサイズと文字サイズ">
+          <span className="sticky-sheet-size-label" aria-hidden>
+            大きさ
+          </span>
+          <button
+            type="button"
+            className="paper-size-btn"
+            aria-label="付箋を小さくする"
+            disabled={locked}
+            onClick={() => resize(-STICKY_SIZE_STEP, 0)}
+          >
+            <Minimize2 size={16} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="paper-size-btn"
+            aria-label="付箋を大きくする"
+            disabled={locked}
+            onClick={() => resize(STICKY_SIZE_STEP, 0)}
+          >
+            <Maximize2 size={16} aria-hidden />
+          </button>
+          <span className="sticky-sheet-size-label" aria-hidden>
+            文字
+          </span>
+          <button
+            type="button"
+            className="paper-font-btn paper-font-btn-sm"
+            aria-label="文字を小さくする"
+            disabled={locked}
+            onClick={() => resize(0, -STICKY_FONT_STEP)}
+          >
+            A
+          </button>
+          <button
+            type="button"
+            className="paper-font-btn paper-font-btn-lg"
+            aria-label="文字を大きくする"
+            disabled={locked}
+            onClick={() => resize(0, STICKY_FONT_STEP)}
+          >
+            A
+          </button>
+        </div>
         <div className="sticky-sheet-actions">
           {PAPER_COLORS.map((color) => (
             <button

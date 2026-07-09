@@ -1,5 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { MAX_STROKE_POINTS, STROKE_BATCH_MS } from '../../shared/limits';
+import {
+  MAX_STROKE_POINTS,
+  STICKY_FONT_DEFAULT,
+  STICKY_H_DEFAULT,
+  STICKY_W_DEFAULT,
+  STROKE_BATCH_MS,
+} from '../../shared/limits';
 import type { ChalkColor, Point } from '../../shared/schema';
 import { useStore } from '../store/store';
 import { chalkCssColor, drawStroke } from './chalk';
@@ -222,13 +228,16 @@ export default function BoardCanvas() {
     } else if (store.tool === 'sticky') {
       // mousedown のデフォルト動作 (フォーカス移動) が開いた直後のエディタを blur しないように
       e.preventDefault();
-      // 画用紙をクリック位置に貼り、その場で編集を開く
+      // 付箋をクリック位置に貼り、その場で編集を開く
       const sticky = {
         id: crypto.randomUUID(),
-        x: p.x - 90,
+        x: p.x - STICKY_W_DEFAULT / 2,
         y: p.y - 40,
         color: 'cream' as const,
         text: '',
+        w: STICKY_W_DEFAULT,
+        h: STICKY_H_DEFAULT,
+        fontSize: STICKY_FONT_DEFAULT,
       };
       store.applyLocalOp({ type: 'addSticky', sticky });
       store.setTool('chalk');

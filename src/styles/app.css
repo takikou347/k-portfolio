@@ -282,7 +282,8 @@
   width: 100%;
   min-height: 80px;
   font-family: var(--font-hand);
-  font-size: 15px;
+  /* 付箋に inline 指定された fontSize を継承する (サイズ変更に追従) */
+  font-size: inherit;
   line-height: 1.6;
   color: var(--color-ink);
   background: transparent;
@@ -316,6 +317,48 @@
 .paper-color-btn.on {
   outline: 2px solid var(--color-chalk-yellow);
   outline-offset: 2px;
+}
+
+/* 選択中ミニツールバー内の区切りとサイズ／文字サイズ操作 */
+.sticky-controls-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 1px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.paper-size-btn,
+.paper-font-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-chalk-white);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.paper-size-btn:hover,
+.paper-font-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.paper-font-btn {
+  font-family: var(--font-hand);
+  font-weight: 700;
+}
+
+.paper-font-btn-sm {
+  font-size: 12px;
+}
+
+.paper-font-btn-lg {
+  font-size: 18px;
 }
 
 .paper-delete-btn {
@@ -379,6 +422,34 @@
 
 .sticky-sheet-spacer {
   flex: 1;
+}
+
+/* SP ボトムシートのサイズ／文字サイズ操作 */
+.sticky-sheet-size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sticky-sheet-size-label {
+  font-size: 13px;
+  color: var(--color-ink);
+  opacity: 0.7;
+}
+
+.sticky-sheet-size .paper-size-btn,
+.sticky-sheet-size .paper-font-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--color-ink);
+}
+
+.sticky-sheet-size .paper-size-btn:hover,
+.sticky-sheet-size .paper-font-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .sticky-sheet .paper-color-btn {
