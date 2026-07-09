@@ -86,7 +86,9 @@ describe('applyOp: eraseArea (部分消し)', () => {
     );
     // 消しゴムに触れた x=50 の点はどの断片にも残らない
     expect(next.strokes.some((s) => s.points.some((p) => p.x === 50 && p.y === 0))).toBe(false);
-    expect(next.strokes.find((s) => s.id === 'far')).toBe(far);
+    // 断片は末尾に追加され、触れていないストロークが先頭に繰り上がる
+    // (SQLite の追記順と配列の並びを一致させ、DO 再起動後も順序がズレないようにする)
+    expect(next.strokes[0]).toBe(far);
   });
 
   it('どのストロークにも触れない eraseArea は無視され、state は同一参照のまま', () => {
@@ -105,9 +107,11 @@ describe('applyOp: eraseArea (部分消し)', () => {
     }
     expect(state.strokes).toHaveLength(MAX_STROKES);
     const next = applyOp(state, { type: 'eraseArea', points: [{ x: 50, y: 0 }], r: 5 });
-    // 2001 本になるため最古 (分割断片の前半) が間引かれ、後半だけが残る
+    // 断片 2 本が末尾に追加されて 2001 本になるため、最古の dot0 が間引かれる
     expect(next.strokes).toHaveLength(MAX_STROKES);
-    expect(next.strokes[0].points).toEqual(line('target', 11).points.slice(6));
+    expect(next.strokes[0].id).toBe('dot1');
+    expect(next.strokes.at(-2)?.points).toEqual(line('target', 11).points.slice(0, 5));
+    expect(next.strokes.at(-1)?.points).toEqual(line('target', 11).points.slice(6));
   });
 });
 

@@ -9,6 +9,34 @@ import type { Point, Stroke } from './schema';
  * クライアント (楽観的適用) と DO (正) が同じ結果になるよう、全て決定的に計算する。
  */
 
+/**
+ * ストロークと軌跡のバウンディングボックスが r 以上離れているか。
+ * 触れる可能性がまったくないストロークを距離計算の前に安く弾く
+ */
+function boundsDisjoint(pts: readonly Point[], path: Point[], r: number): boolean {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of path) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  let sMinX = Infinity;
+  let sMinY = Infinity;
+  let sMaxX = -Infinity;
+  let sMaxY = -Infinity;
+  for (const p of pts) {
+    if (p.x < sMinX) sMinX = p.x;
+    if (p.x > sMaxX) sMaxX = p.x;
+    if (p.y < sMinY) sMinY = p.y;
+    if (p.y > sMaxY) sMaxY = p.y;
+  }
+  return sMaxX < minX - r || sMinX > maxX + r || sMaxY < minY - r || sMinY > maxY + r;
+}
+
 /** 点 p が軌跡 (カプセル列) に触れるか */
 function pointTouchesPath(p: Point, path: Point[], rSq: number): boolean {
   if (path.length === 1) {
@@ -33,6 +61,7 @@ function segmentTouchesPath(a: Point, b: Point, path: Point[], rSq: number): boo
 
 /** ストロークが軌跡に触れるか。クライアントが op 送信要否の判定に使う */
 export function strokeTouchesPath(stroke: Stroke, path: Point[], r: number): boolean {
+  if (boundsDisjoint(stroke.points, path, r)) return false;
   const rSq = r * r;
   const pts = stroke.points;
   if (pts.length === 1) return pointTouchesPath(pts[0], path, rSq);
@@ -58,6 +87,7 @@ export function fragmentId(parentId: string, start: number): string {
  * 変更が生じた場合、断片には常に新しい決定的 id を振る (元 id は盤面から消える)
  */
 export function eraseStrokePath(stroke: Stroke, path: Point[], r: number): Stroke[] | null {
+  if (boundsDisjoint(stroke.points, path, r)) return null;
   const rSq = r * r;
   const pts = stroke.points;
   if (pts.length === 1) {

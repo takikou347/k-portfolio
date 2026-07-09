@@ -97,6 +97,15 @@ describe('strokeSchema / op メッセージ', () => {
     expect(clientMessageSchema.safeParse(msg).success).toBe(true);
   });
 
+  it('eraseArea は境界値 (r=1 / r=100 / 40 点) ちょうどを受け入れる', () => {
+    const ok = (op: unknown) =>
+      expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(true);
+    ok({ type: 'eraseArea', points: [{ x: 0, y: 0 }], r: 1 });
+    ok({ type: 'eraseArea', points: [{ x: 0, y: 0 }], r: 100 });
+    const maxPoints = Array.from({ length: 40 }, (_, i) => ({ x: i, y: i }));
+    ok({ type: 'eraseArea', points: maxPoints, r: 22 });
+  });
+
   it('eraseArea の点数 0・点数超過・範囲外の半径は拒否する', () => {
     const ng = (op: unknown) =>
       expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(false);

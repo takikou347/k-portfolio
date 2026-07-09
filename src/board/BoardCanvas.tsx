@@ -148,6 +148,9 @@ export default function BoardCanvas() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', markDirty);
+      // アンマウント後にバッチ送信タイマーが発火しないように
+      if (flushTimerRef.current !== null) clearTimeout(flushTimerRef.current);
+      if (eraseTimerRef.current !== null) clearTimeout(eraseTimerRef.current);
     };
   }, []);
 
