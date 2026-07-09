@@ -49,6 +49,34 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         run: pnpm test
 
+  # 仕様とドキュメントの同期ゲート (docs/README.md「ドキュメントの保守」):
+  # 仕様を定義するパスを変更する PR は docs/ も同じ PR で更新する。
+  # 内部リファクタ等でドキュメントに影響がない場合は、PR ラベル docs-not-needed で明示的にスキップする
+  docs-sync:
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'docs-not-needed')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 仕様ファイル変更時に docs/ の更新を検査
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+          printf '変更ファイル:\n%s\n' "$CHANGED"
+          SPEC=$(printf '%s\n' "$CHANGED" | grep -E '^(shared/|worker/|src/ws/)' || true)
+          DOCS=$(printf '%s\n' "$CHANGED" | grep -E '^docs/' || true)
+          if [ -n "$SPEC" ] && [ -z "$DOCS" ]; then
+            echo "::error::仕様を定義するファイルが変更されていますが、docs/ が更新されていません。"
+            printf '対象の仕様ファイル:\n%s\n' "$SPEC"
+            echo "docs/protocol.md (メッセージ型・上限値) / docs/architecture.md (構成・挙動) の該当箇所を同じ PR で更新してください。"
+            echo "ドキュメントに影響しない変更 (内部リファクタ等) の場合は、PR にラベル docs-not-needed を付けて明示してください。"
+            exit 1
+          fi
+          echo "OK: docs/ の同期条件を満たしています"
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20

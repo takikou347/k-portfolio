@@ -34,6 +34,8 @@
 
 - 実装前に必ず計画を立て、影響ファイルを列挙してから着手する
 - 機能追加は vertical-slice スキルの縦切り手順に従う
+- 仕様 (`shared/` / `worker/` / `src/ws/`) を変更する PR では `docs/` を同じ PR で更新する
+  (CI の docs-sync ジョブが決定論的に検査。影響がない場合のみ PR ラベル `docs-not-needed` を付ける)
 - 完了報告には必ず証拠を添える: `pnpm typecheck && pnpm lint && pnpm test` の実行結果
 - 大きな調査やテスト全件実行はサブエージェントに委譲し、メインの文脈を汚さない
 - デプロイと本番操作は CI (main への push) に委ねる

@@ -27,5 +27,9 @@
 
 - コードと矛盾したドキュメントは負債になる。プロトコルや上限値を変更する PR では、
   [protocol.md](protocol.md) / [architecture.md](architecture.md) の該当箇所も同じ PR で更新する
+- **CI が決定論的に検査する**: 仕様を定義するパス (`shared/` / `worker/` / `src/ws/`) を変更した
+  PR で `docs/` が無変更だと、`ci.yml` の `docs-sync` ジョブが fail する。内部リファクタなど
+  ドキュメントに影響しない変更は、PR にラベル `docs-not-needed` を付けて明示的にスキップする。
+  変更箇所とドキュメントの対応表は `.claude/rules/docs-sync.md` にある
 - 数値 (上限・タイミング) の正は常に `shared/limits.ts`。ドキュメント側の表は転記なので、
   食い違ったらコードが正しい
