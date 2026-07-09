@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # main / develop のブランチ保護 (Ruleset) を gh api で一括作成する補助スクリプト。
-# README「デプロイと Secrets > ブランチ保護 (必須)」の手順を再現性のある形にしたもの。
+# docs/operations.md「あわせて行うこと > ブランチ保護 (必須)」の手順を再現性のある形にしたもの。
 #
 # 前提: gh CLI が認証済み (gh auth login) で、対象リポジトリへの admin 権限があること。
 # 使い方: bash scripts/setup-branch-protection.sh <owner>/<repo>

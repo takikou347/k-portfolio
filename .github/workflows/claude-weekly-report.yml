@@ -27,7 +27,7 @@ jobs:
         run: |
           if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Secrets 未設定のためスキップ (README「デプロイと Secrets」参照)"
+            echo "::notice::Secrets 未設定のためスキップ (docs/operations.md 参照)"
           fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'

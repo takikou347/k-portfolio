@@ -6,9 +6,10 @@
 
 | ドキュメント | 内容 | 対象 |
 |---|---|---|
-| [../README.md](../README.md) | プロジェクト概要・機能一覧・環境構築・デプロイと Secrets・自動運用 | 全員 |
+| [../README.md](../README.md) | プロジェクト概要・機能一覧・環境構築・自動運用 | 全員 |
 | [architecture.md](architecture.md) | システム構成・データフロー・Durable Object のライフサイクル・状態管理の設計 | コードを読み書きする人 |
 | [protocol.md](protocol.md) | WebSocket メッセージプロトコル仕様 (全メッセージ型・検証・レート制限・上限値) | クライアント/サーバー間の通信に触れる人 |
+| [operations.md](operations.md) | 運用セットアップ (デプロイ・Secrets 登録・ブランチ保護・課金リスク) | リポジトリを fork / 運用する人 |
 
 ## 目的別の参照先
 
