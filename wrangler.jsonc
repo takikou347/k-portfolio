@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kokuban",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-06-01",
+  // SPA は Worker の static assets として配信する
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "BOARD", "class_name": "BoardDO" }]
+  },
+  // Free プランでは SQLite バックエンドの DO のみ利用可
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BoardDO"] }],
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,28 @@
+/* こくばん デザイントークン — 正は design/DESIGN.md。hex はここ以外に書かない */
+:root {
+  /* 黒板 */
+  --color-board: #2e4a3e;
+  --color-board-deep: #23392f;
+  --color-frame: #8a6a48;
+
+  /* チョーク */
+  --color-chalk-white: #f2f0e6;
+  --color-chalk-pink: #e8a0a8;
+  --color-chalk-yellow: #efd98b;
+  --color-chalk-blue: #9fc3d8;
+
+  /* 画用紙 (付箋) */
+  --color-paper-cream: #f6efdc;
+  --color-paper-rose: #f2d5d0;
+  --color-paper-sky: #d3e4ec;
+
+  /* 小物 */
+  --color-magnet: #c0392b;
+  --color-magnet-blue: #3d6fa8;
+  --color-ink: #3a3630;
+
+  /* タイポグラフィ */
+  --font-hand: 'Yusei Magic', sans-serif;
+  --font-ui: 'Zen Kaku Gothic New', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}

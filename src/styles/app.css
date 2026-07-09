@@ -1,0 +1,759 @@
+/* ===== 黒板の盤面 ===== */
+.stage {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, var(--color-board) 60%, var(--color-board-deep));
+  border-top: 14px solid var(--color-frame);
+  overflow: hidden;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+/* 微細なノイズテクスチャ (CSS 生成) */
+.stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: repeating-conic-gradient(
+    rgba(255, 255, 255, 0.012) 0% 0.0001%,
+    transparent 0.0002% 0.0004%
+  );
+}
+
+.stage.tool-eraser {
+  cursor: cell;
+}
+
+.stage.tool-sticky {
+  cursor: copy;
+}
+
+.stage.stage-panning {
+  cursor: grab;
+}
+
+.board-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.board-objects {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* ===== チョーク受け (ツールバー) ===== */
+.tray {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--color-frame);
+  box-shadow: 0 -3px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  padding: 0 10px;
+}
+
+.chalk-btn {
+  width: 48px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex: none;
+}
+
+.chalk {
+  width: 44px;
+  height: 16px;
+  border-radius: 3px;
+  box-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.35),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.12);
+  transition: transform 0.1s;
+}
+
+.chalk-white {
+  background: var(--color-chalk-white);
+}
+.chalk-pink {
+  background: var(--color-chalk-pink);
+}
+.chalk-yellow {
+  background: var(--color-chalk-yellow);
+}
+.chalk-blue {
+  background: var(--color-chalk-blue);
+}
+
+.chalk-btn:hover .chalk {
+  transform: translateY(-4px);
+}
+
+/* 選択中のチョークは受けから浮き上がる */
+.chalk-btn.on .chalk {
+  transform: translateY(-7px);
+  outline: 2px solid var(--color-chalk-yellow);
+  outline-offset: 3px;
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-chalk-white);
+  background: rgba(0, 0, 0, 0.22);
+  border: none;
+  border-radius: 6px;
+  padding: 9px 12px;
+  cursor: pointer;
+  flex: none;
+}
+
+.tool-btn:hover {
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.tool-btn.on {
+  outline: 2px solid var(--color-chalk-yellow);
+  outline-offset: 2px;
+}
+
+.tool-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.tool-btn:disabled:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.tray-gap {
+  width: 8px;
+  flex: none;
+}
+
+.emoji-btn {
+  font-size: 18px;
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s;
+  flex: none;
+}
+
+.emoji-btn:hover {
+  transform: scale(1.3);
+}
+
+/* ===== ズームコントロール (右下) ===== */
+.zoom-controls {
+  position: fixed;
+  right: 12px;
+  bottom: 70px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+
+.zoom-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 40px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--color-chalk-white);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.zoom-controls button:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.zoom-reset {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ===== 画用紙の付箋 ===== */
+.paper {
+  position: absolute;
+  width: 180px;
+  min-height: 120px;
+  padding: 26px 16px 14px;
+  background: var(--color-paper-cream);
+  color: var(--color-ink);
+  font-family: var(--font-hand);
+  font-size: 15px;
+  line-height: 1.6;
+  /* わずかに不揃いな角 */
+  border-radius: 7px 12px 9px 14px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+  user-select: none;
+  pointer-events: auto;
+  touch-action: none;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.paper-cream {
+  background: var(--color-paper-cream);
+}
+.paper-rose {
+  background: var(--color-paper-rose);
+}
+.paper-sky {
+  background: var(--color-paper-sky);
+}
+
+/* 上辺中央の赤マグネット */
+.paper::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-magnet);
+  box-shadow:
+    inset -2px -2px 3px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ドラッグ中は影が深くなり 1.5deg 傾く */
+.paper.drag {
+  cursor: grabbing;
+  transform: rotate(1.5deg) scale(1.02);
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.45);
+  z-index: 5;
+}
+
+/* ドロップでピタッと吸着 */
+.paper.snap {
+  animation: paper-snap 0.14s ease;
+}
+
+@keyframes paper-snap {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.paper-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.paper-editor {
+  width: 100%;
+  min-height: 80px;
+  font-family: var(--font-hand);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-ink);
+  background: transparent;
+  border: none;
+  resize: none;
+}
+
+/* 選択中のミニツールバー (色 3 種 + 削除) */
+.sticky-controls {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.paper-color-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.paper-color-btn.on {
+  outline: 2px solid var(--color-chalk-yellow);
+  outline-offset: 2px;
+}
+
+.paper-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--color-chalk-white);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.sticky-controls .paper-delete-btn:hover {
+  color: var(--color-chalk-pink);
+}
+
+/* ===== SP: 付箋のボトムシート ===== */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: none;
+  z-index: 24;
+  cursor: default;
+}
+
+.sticky-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  background: var(--color-paper-cream);
+  color: var(--color-ink);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4);
+  padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+}
+
+.sticky-sheet textarea {
+  width: 100%;
+  font-family: var(--font-hand);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 2px dashed rgba(58, 54, 48, 0.35);
+  resize: none;
+  padding: 4px;
+}
+
+.sticky-sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sticky-sheet-spacer {
+  flex: 1;
+}
+
+.sticky-sheet .paper-color-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.sticky-sheet .paper-delete-btn {
+  color: var(--color-magnet);
+  min-height: 44px;
+}
+
+.sticky-sheet-done {
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--color-board);
+  color: var(--color-chalk-white);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+/* ===== マグネット (カーソルの点・色選択) ===== */
+.magnet-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow:
+    inset -2px -2px 3px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.magnet-red {
+  background: var(--color-magnet);
+}
+.magnet-blue {
+  background: var(--color-magnet-blue);
+}
+.magnet-yellow {
+  background: var(--color-chalk-yellow);
+}
+.magnet-pink {
+  background: var(--color-chalk-pink);
+}
+
+/* ===== 他人のカーソル ===== */
+.peer-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  pointer-events: none;
+  transition: transform 0.12s ease;
+}
+
+.peer-cursor-name {
+  font-family: var(--font-hand);
+  font-size: 13px;
+  margin-top: 4px;
+  padding: 1px 8px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 8px;
+  white-space: nowrap;
+  color: var(--color-chalk-white);
+}
+
+/* ===== リアクション演出 ===== */
+.reaction-pop {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.reaction-emoji {
+  display: inline-block;
+  font-size: 30px;
+  animation: reaction-rise 1.2s ease-out forwards;
+}
+
+@keyframes reaction-rise {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(0.7);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-90px) scale(1.4);
+  }
+}
+
+.reaction-dust {
+  position: absolute;
+  top: 22px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-chalk-white);
+  animation: dust-fall 0.9s ease-in forwards;
+}
+
+@keyframes dust-fall {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}
+
+/* ===== プレースホルダー ===== */
+.placeholder {
+  position: fixed;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-hand);
+  font-size: clamp(22px, 5vw, 34px);
+  opacity: 0.28;
+  pointer-events: none;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/* ===== 接続人数 (右上) と参加者一覧 ===== */
+.presence {
+  position: fixed;
+  top: 22px;
+  right: 18px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.presence-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-chalk-white);
+  opacity: 0.75;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+
+.presence-badge:hover {
+  opacity: 1;
+}
+
+.presence-popover {
+  margin-top: 6px;
+  list-style: none;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.presence-popover li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.presence-name {
+  font-family: var(--font-hand);
+  font-size: 14px;
+}
+
+/* ===== 状態バナー (上部・チョーク文字) ===== */
+.banner {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-hand);
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  padding: 4px 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  z-index: 15;
+  white-space: nowrap;
+}
+
+.banner-ok {
+  color: var(--color-chalk-yellow);
+}
+
+/* ===== 入室ダイアログ ===== */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+}
+
+.name-dialog {
+  position: relative;
+  width: min(320px, 92vw);
+  padding: 36px 24px 22px;
+  background: var(--color-paper-cream);
+  color: var(--color-ink);
+  border-radius: 7px 12px 9px 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+/* 画用紙を留めるマグネット */
+.name-dialog::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-magnet);
+  box-shadow:
+    inset -2px -2px 3px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.name-dialog h1 {
+  font-family: var(--font-hand);
+  font-size: 20px;
+  font-weight: 400;
+  margin-bottom: 14px;
+}
+
+.name-dialog input[type='text'] {
+  width: 100%;
+  font-family: var(--font-hand);
+  font-size: 18px;
+  color: var(--color-ink);
+  text-align: center;
+  background: transparent;
+  border: none;
+  border-bottom: 2px dashed rgba(58, 54, 48, 0.4);
+  padding: 6px 4px;
+}
+
+.color-picker {
+  border: none;
+  margin: 16px 0;
+}
+
+.color-picker legend {
+  font-size: 11px;
+  opacity: 0.7;
+  margin: 0 auto 8px;
+}
+
+.color-picker {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+.color-choice {
+  cursor: pointer;
+  display: inline-flex;
+  padding: 4px;
+}
+
+.color-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.color-choice .magnet-dot {
+  width: 22px;
+  height: 22px;
+}
+
+.color-choice.on .magnet-dot {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.color-choice:has(input:focus-visible) .magnet-dot {
+  outline: 2px solid var(--color-chalk-yellow);
+  outline-offset: 2px;
+}
+
+.name-dialog button[type='submit'] {
+  width: 100%;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--color-board);
+  color: var(--color-chalk-white);
+  border: none;
+  border-radius: 8px;
+  padding: 11px 22px;
+  cursor: pointer;
+}
+
+.name-dialog button[type='submit']:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ===== SP (≤639px): 横スクロール可能なチョーク受け ===== */
+@media (max-width: 639px) {
+  .tray {
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tool-label {
+    display: none;
+  }
+
+  /* 名前入力はボトムシートにする */
+  .dialog-overlay {
+    align-items: flex-end;
+  }
+
+  .name-dialog {
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: max(22px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ===== reduced-motion: 装飾アニメーションを無効化 (機能は維持) ===== */
+@media (prefers-reduced-motion: reduce) {
+  .chalk,
+  .emoji-btn,
+  .peer-cursor,
+  .paper {
+    transition: none;
+  }
+
+  .paper.snap {
+    animation: none;
+  }
+
+  .reaction-emoji {
+    animation: reaction-hold 1.2s step-end forwards;
+  }
+
+  .reaction-dust {
+    display: none;
+  }
+}
+
+@keyframes reaction-hold {
+  to {
+    opacity: 0;
+  }
+}

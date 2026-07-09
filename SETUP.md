@@ -34,7 +34,8 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
    - 毎日 03:00 JST → 未対応 Issue を自動処理 (修正 PR 作成 / 回答 / 計画コメント)
    - 毎朝 09:00 JST → Cloudflare ヘルスチェック報告
    - 毎週金曜 → 週次レポート
-   - merge は常に人間の担当
+   - develop 向け PR は CI green + レビュー [must] ゼロを条件に Claude が merge
+   - リリース PR (develop → main) の merge は常に人間の担当 (= 本番デプロイの最終ゲート)
 
 ## 2. 課金リスクについて (重要)
 

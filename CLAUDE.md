@@ -70,7 +70,10 @@
 - コミットメッセージは Conventional Commits 形式: `feat: / fix: / docs: / style: / refactor: /
   perf: / test: / chore: / ci:` + 末尾に `(#<Issue番号>)` (例: `feat: リアクションに 🎉 を追加 (#12)`)。
   プレフィックスは hooks (guard-bash.sh) が決定論的に検査する
-- 1 コミット = 1 論理変更。無関係な変更を混ぜない。PR の merge は常に人間の担当
+- 1 コミット = 1 論理変更。無関係な変更を混ぜない
+- **merge の担当**: develop 向けの PR は、CI が green かつレビュー指摘 [must] がゼロであることを
+  確認したうえで Claude が merge してよい (作成直後の PR を検証確認なしに merge しない)。
+  **develop → main のリリース PR の merge は必ず人間が行う** (本番デプロイの最終ゲート)
 
 ### リリース (develop → main)
 
