@@ -1,0 +1,175 @@
+import { describe, expect, it } from 'vitest';
+import {
+  clientMessageSchema,
+  joinSchema,
+  serverMessageSchema,
+  userSchema,
+} from '../../shared/schema';
+
+describe('joinSchema (入室情報)', () => {
+  it('2〜8文字の名前と有効な色を受け入れる', () => {
+    expect(joinSchema.parse({ name: 'はなこ', color: 'red' })).toEqual({
+      name: 'はなこ',
+      color: 'red',
+    });
+    expect(joinSchema.safeParse({ name: 'ふた', color: 'blue' }).success).toBe(true);
+    expect(joinSchema.safeParse({ name: 'はちもじのなまえ', color: 'pink' }).success).toBe(true);
+  });
+
+  it('1文字・9文字・不正な色は拒否する', () => {
+    expect(joinSchema.safeParse({ name: 'あ', color: 'red' }).success).toBe(false);
+    expect(joinSchema.safeParse({ name: 'きゅうもじのなまえだ', color: 'red' }).success).toBe(
+      false,
+    );
+    expect(joinSchema.safeParse({ name: 'はなこ', color: 'magenta' }).success).toBe(false);
+  });
+});
+
+describe('clientMessageSchema (受信メッセージ検証)', () => {
+  it('cursor メッセージを受け入れる', () => {
+    const msg = { type: 'cursor', x: 10.5, y: -3 };
+    expect(clientMessageSchema.parse(msg)).toEqual(msg);
+  });
+
+  it('未知の type・欠けたフィールド・範囲外の座標は拒否する', () => {
+    expect(clientMessageSchema.safeParse({ type: 'hack' }).success).toBe(false);
+    expect(clientMessageSchema.safeParse({ type: 'cursor', x: 1 }).success).toBe(false);
+    expect(clientMessageSchema.safeParse({ type: 'cursor', x: 1e9, y: 0 }).success).toBe(false);
+    expect(clientMessageSchema.safeParse('not-an-object').success).toBe(false);
+  });
+});
+
+describe('strokeSchema / op メッセージ', () => {
+  const validStroke = {
+    id: 's1',
+    color: 'pink',
+    points: [
+      { x: 0, y: 0 },
+      { x: 5, y: 5 },
+    ],
+  };
+
+  it('addStroke op を受け入れる', () => {
+    const msg = { type: 'op', op: { type: 'addStroke', stroke: validStroke } };
+    expect(clientMessageSchema.safeParse(msg).success).toBe(true);
+  });
+
+  it('eraseStroke op を受け入れる', () => {
+    const msg = { type: 'op', op: { type: 'eraseStroke', strokeId: 's1' } };
+    expect(clientMessageSchema.safeParse(msg).success).toBe(true);
+  });
+
+  it('不正な色・点数 0・点数超過のストロークは拒否する', () => {
+    const base = { type: 'op', op: { type: 'addStroke', stroke: validStroke } };
+    expect(
+      clientMessageSchema.safeParse({
+        ...base,
+        op: { ...base.op, stroke: { ...validStroke, color: 'green' } },
+      }).success,
+    ).toBe(false);
+    expect(
+      clientMessageSchema.safeParse({
+        ...base,
+        op: { ...base.op, stroke: { ...validStroke, points: [] } },
+      }).success,
+    ).toBe(false);
+    const tooMany = Array.from({ length: 601 }, (_, i) => ({ x: i, y: i }));
+    expect(
+      clientMessageSchema.safeParse({
+        ...base,
+        op: { ...base.op, stroke: { ...validStroke, points: tooMany } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('付箋の op (add / move / edit / recolor / delete) を受け入れる', () => {
+    const sticky = { id: 'n1', x: 10, y: 20, color: 'rose', text: 'こんにちは' };
+    const ok = (op: unknown) =>
+      expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(true);
+    ok({ type: 'addSticky', sticky });
+    ok({ type: 'moveSticky', id: 'n1', x: 1, y: 2 });
+    ok({ type: 'editSticky', id: 'n1', text: '' });
+    ok({ type: 'recolorSticky', id: 'n1', color: 'sky' });
+    ok({ type: 'deleteSticky', id: 'n1' });
+  });
+
+  it('81 文字のテキスト・不正な画用紙色は拒否する', () => {
+    const ng = (op: unknown) =>
+      expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(false);
+    ng({ type: 'editSticky', id: 'n1', text: 'あ'.repeat(81) });
+    ng({
+      type: 'addSticky',
+      sticky: { id: 'n1', x: 0, y: 0, color: 'black', text: '' },
+    });
+  });
+
+  it('reaction は 4 種の絵文字のみ受け入れる', () => {
+    for (const emoji of ['👏', '✨', '💮', '❤️']) {
+      expect(clientMessageSchema.safeParse({ type: 'reaction', emoji, x: 0, y: 0 }).success).toBe(
+        true,
+      );
+    }
+    expect(
+      clientMessageSchema.safeParse({ type: 'reaction', emoji: '🔥', x: 0, y: 0 }).success,
+    ).toBe(false);
+  });
+
+  it('stroking (描画中プレビュー) を受け入れる', () => {
+    const msg = {
+      type: 'stroking',
+      strokeId: 's1',
+      color: 'white',
+      points: [{ x: 1, y: 2 }],
+    };
+    expect(clientMessageSchema.safeParse(msg).success).toBe(true);
+  });
+});
+
+describe('serverMessageSchema', () => {
+  const user = { id: 'u1', name: 'はなこ', color: 'red' };
+
+  it('userSchema が id/name/color を検証する', () => {
+    expect(userSchema.safeParse(user).success).toBe(true);
+    expect(userSchema.safeParse({ ...user, id: '' }).success).toBe(false);
+  });
+
+  it('snapshot / presence / cursor / op を受け入れる', () => {
+    expect(
+      serverMessageSchema.safeParse({
+        type: 'snapshot',
+        self: user,
+        users: [user],
+        full: false,
+        state: { strokes: [], stickies: [] },
+      }).success,
+    ).toBe(true);
+    expect(
+      serverMessageSchema.safeParse({
+        type: 'op',
+        op: { type: 'eraseStroke', strokeId: 's1' },
+      }).success,
+    ).toBe(true);
+    expect(
+      serverMessageSchema.safeParse({
+        type: 'stroking',
+        userId: 'u1',
+        strokeId: 's1',
+        color: 'white',
+        points: [{ x: 1, y: 2 }],
+      }).success,
+    ).toBe(true);
+    expect(
+      serverMessageSchema.safeParse({ type: 'presence', event: 'join', user, users: [user] })
+        .success,
+    ).toBe(true);
+    expect(
+      serverMessageSchema.safeParse({ type: 'cursor', userId: 'u1', x: 0, y: 0 }).success,
+    ).toBe(true);
+  });
+
+  it('presence の未知の event は拒否する', () => {
+    expect(
+      serverMessageSchema.safeParse({ type: 'presence', event: 'kick', user, users: [] }).success,
+    ).toBe(false);
+  });
+});
