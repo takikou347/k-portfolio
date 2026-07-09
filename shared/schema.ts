@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+  ERASE_RADIUS_MAX,
+  ERASE_RADIUS_MIN,
+  MAX_ERASE_POINTS,
   MAX_STROKE_POINTS,
   NAME_MAX,
   NAME_MIN,
@@ -86,6 +89,12 @@ export type Sticky = z.infer<typeof stickySchema>;
 export const opSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('addStroke'), stroke: strokeSchema }),
   z.object({ type: z.literal('eraseStroke'), strokeId: idSchema }),
+  // 部分消し: 消しゴムの軌跡 (カプセル列) に触れた部分だけを消す
+  z.object({
+    type: z.literal('eraseArea'),
+    points: z.array(pointSchema).min(1).max(MAX_ERASE_POINTS),
+    r: z.number().finite().min(ERASE_RADIUS_MIN).max(ERASE_RADIUS_MAX),
+  }),
   z.object({ type: z.literal('addSticky'), sticky: stickySchema }),
   z.object({ type: z.literal('moveSticky'), id: idSchema, x: coordSchema, y: coordSchema }),
   z.object({ type: z.literal('editSticky'), id: idSchema, text: stickyTextSchema }),

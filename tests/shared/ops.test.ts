@@ -65,6 +65,56 @@ describe('applyOp: eraseStroke', () => {
   });
 });
 
+describe('applyOp: eraseArea (部分消し)', () => {
+  /** x 軸上に 10px 間隔で n 点並ぶ直線ストローク */
+  function line(id: string, n: number, y = 0): Stroke {
+    return {
+      id,
+      color: 'white',
+      points: Array.from({ length: n }, (_, i) => ({ x: i * 10, y })),
+    };
+  }
+
+  it('触れた部分だけが消え、ストロークが分割される。触れていないストロークは同一参照のまま', () => {
+    let state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: line('target', 11) });
+    state = applyOp(state, { type: 'addStroke', stroke: line('far', 11, 1000) });
+    const far = state.strokes[1];
+    const next = applyOp(state, { type: 'eraseArea', points: [{ x: 50, y: 0 }], r: 5 });
+    expect(next.strokes).toHaveLength(3); // target が 2 断片に分割 + far
+    expect(next.strokes.filter((s) => s.id !== 'far').every((s) => s.points.length === 5)).toBe(
+      true,
+    );
+    // 消しゴムに触れた x=50 の点はどの断片にも残らない
+    expect(next.strokes.some((s) => s.points.some((p) => p.x === 50 && p.y === 0))).toBe(false);
+    // 断片は末尾に追加され、触れていないストロークが先頭に繰り上がる
+    // (SQLite の追記順と配列の並びを一致させ、DO 再起動後も順序がズレないようにする)
+    expect(next.strokes[0]).toBe(far);
+  });
+
+  it('どのストロークにも触れない eraseArea は無視され、state は同一参照のまま', () => {
+    const state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: line('s1', 11) });
+    const next = applyOp(state, { type: 'eraseArea', points: [{ x: 50, y: 500 }], r: 5 });
+    expect(next).toBe(state);
+  });
+
+  it('分割で上限 (2000 本) を超えたら古い順に間引かれる', () => {
+    let state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: line('target', 11) });
+    for (let i = 0; i < MAX_STROKES - 1; i++) {
+      state = applyOp(state, {
+        type: 'addStroke',
+        stroke: { id: `dot${i}`, color: 'white', points: [{ x: i, y: 5000 }] },
+      });
+    }
+    expect(state.strokes).toHaveLength(MAX_STROKES);
+    const next = applyOp(state, { type: 'eraseArea', points: [{ x: 50, y: 0 }], r: 5 });
+    // 断片 2 本が末尾に追加されて 2001 本になるため、最古の dot0 が間引かれる
+    expect(next.strokes).toHaveLength(MAX_STROKES);
+    expect(next.strokes[0].id).toBe('dot1');
+    expect(next.strokes.at(-2)?.points).toEqual(line('target', 11).points.slice(0, 5));
+    expect(next.strokes.at(-1)?.points).toEqual(line('target', 11).points.slice(6));
+  });
+});
+
 describe('applyOp: 付箋 (addSticky / moveSticky / editSticky / recolorSticky / deleteSticky)', () => {
   it('addSticky で付箋が追加される', () => {
     const next = applyOp(emptyBoardState(), { type: 'addSticky', sticky: sticky('n1') });

@@ -200,6 +200,25 @@ export class BoardDO extends DurableObject<Env> {
         sql.exec('DELETE FROM strokes WHERE id = ?', op.strokeId);
         break;
       }
+      case 'eraseArea': {
+        // 部分消しは元ストロークの削除 + 断片の追加になる。reducer 適用前後の id を
+        // 突き合わせ、消えたものを DELETE・現れた断片を INSERT する
+        const beforeIds = new Set(before.strokes.map((s) => s.id));
+        const afterIds = new Set(after.strokes.map((s) => s.id));
+        for (const s of before.strokes) {
+          if (!afterIds.has(s.id)) sql.exec('DELETE FROM strokes WHERE id = ?', s.id);
+        }
+        for (const s of after.strokes) {
+          if (!beforeIds.has(s.id)) {
+            sql.exec(
+              'INSERT OR IGNORE INTO strokes (id, data) VALUES (?, ?)',
+              s.id,
+              JSON.stringify(s),
+            );
+          }
+        }
+        break;
+      }
       case 'addSticky': {
         sql.exec(
           'INSERT OR IGNORE INTO stickies (id, data) VALUES (?, ?)',

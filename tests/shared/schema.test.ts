@@ -82,6 +82,40 @@ describe('strokeSchema / op メッセージ', () => {
     ).toBe(false);
   });
 
+  it('eraseArea op (部分消し) を受け入れる', () => {
+    const msg = {
+      type: 'op',
+      op: {
+        type: 'eraseArea',
+        points: [
+          { x: 0, y: 0 },
+          { x: 10, y: 3 },
+        ],
+        r: 22,
+      },
+    };
+    expect(clientMessageSchema.safeParse(msg).success).toBe(true);
+  });
+
+  it('eraseArea は境界値 (r=1 / r=100 / 40 点) ちょうどを受け入れる', () => {
+    const ok = (op: unknown) =>
+      expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(true);
+    ok({ type: 'eraseArea', points: [{ x: 0, y: 0 }], r: 1 });
+    ok({ type: 'eraseArea', points: [{ x: 0, y: 0 }], r: 100 });
+    const maxPoints = Array.from({ length: 40 }, (_, i) => ({ x: i, y: i }));
+    ok({ type: 'eraseArea', points: maxPoints, r: 22 });
+  });
+
+  it('eraseArea の点数 0・点数超過・範囲外の半径は拒否する', () => {
+    const ng = (op: unknown) =>
+      expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(false);
+    ng({ type: 'eraseArea', points: [], r: 22 });
+    const tooMany = Array.from({ length: 41 }, (_, i) => ({ x: i, y: i }));
+    ng({ type: 'eraseArea', points: tooMany, r: 22 });
+    ng({ type: 'eraseArea', points: [{ x: 0, y: 0 }], r: 0.5 });
+    ng({ type: 'eraseArea', points: [{ x: 0, y: 0 }], r: 101 });
+  });
+
   it('付箋の op (add / move / edit / recolor / delete) を受け入れる', () => {
     const sticky = { id: 'n1', x: 10, y: 20, color: 'rose', text: 'こんにちは' };
     const ok = (op: unknown) =>

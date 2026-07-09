@@ -1,7 +1,8 @@
 import { env, runInDurableObject, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { CLOSE_CODE_FULL, MAX_CONNECTIONS, MAX_SPECTATORS, MAX_STROKES } from '../../shared/limits';
-import type { ServerMessage, Stroke } from '../../shared/schema';
+import { applyOp, emptyBoardState } from '../../shared/ops';
+import type { Op, ServerMessage, Stroke } from '../../shared/schema';
 import type { BoardDO } from '../../worker/board-do';
 
 type Inbox = {
@@ -127,6 +128,68 @@ describe('BoardDO: presence とライブカーソル', () => {
     const snapD = await d.next();
     if (snapD.type !== 'snapshot') return;
     expect(snapD.state.strokes).toEqual([]);
+  });
+
+  it('eraseArea op で触れた部分だけが消え、分割された断片が永続化される', async () => {
+    const line: Stroke = {
+      id: 'line-1',
+      color: 'white',
+      points: Array.from({ length: 11 }, (_, i) => ({ x: i * 10, y: 0 })),
+    };
+    const other: Stroke = { id: 'other-1', color: 'pink', points: [{ x: 0, y: 500 }] };
+
+    const a = await connect('erase-area-board', 'はなこ');
+    await a.next(); // snapshot
+    const b = await connect('erase-area-board', 'たろう', 'blue');
+    await b.next(); // snapshot
+    await a.next(); // join presence
+
+    a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addStroke', stroke: line } }));
+    await b.next();
+    a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addStroke', stroke: other } }));
+    await b.next();
+
+    // B が中央をなぞると、op がそのまま A にブロードキャストされる
+    const erase: Op = { type: 'eraseArea', points: [{ x: 50, y: 0 }], r: 5 };
+    b.ws.send(JSON.stringify({ type: 'op', op: erase }));
+    expect(await a.next()).toEqual({ type: 'op', op: erase });
+
+    // 共有 reducer で同じ op 列を適用した結果が期待値 (クライアントの楽観的適用と一致するはず)
+    let expected = emptyBoardState();
+    expected = applyOp(expected, { type: 'addStroke', stroke: line });
+    expected = applyOp(expected, { type: 'addStroke', stroke: other });
+    expected = applyOp(expected, erase);
+
+    // 後から入る C の snapshot は分割後の断片 (中央の点は消えている) = 永続化されている。
+    // 並び順も reducer と一致する (断片は末尾に追加される)
+    const c = await connect('erase-area-board', 'じろう', 'yellow');
+    const snapC = await c.next();
+    expect(snapC.type).toBe('snapshot');
+    if (snapC.type !== 'snapshot') return;
+    expect(snapC.state.strokes).toEqual(expected.strokes);
+    expect(snapC.state.strokes).toHaveLength(3);
+    const [, front, back] = snapC.state.strokes;
+    expect(front.points).toEqual(line.points.slice(0, 5));
+    expect(back.points).toEqual(line.points.slice(6));
+    expect(front.id).not.toBe('line-1');
+    await a.next(); // C の join presence を消費
+
+    // SQLite 上の並び (seq 順) も reducer の配列順と一致する = DO がハイバネーションから
+    // 復帰して SQLite から再ロードしても順序がズレない
+    const stub = env.BOARD.getByName('erase-area-board');
+    await runInDurableObject(stub, async (_instance: BoardDO, state) => {
+      const ids = [...state.storage.sql.exec('SELECT id FROM strokes ORDER BY seq ASC')].map(
+        (row) => row.id,
+      );
+      expect(ids).toEqual(expected.strokes.map((s) => s.id));
+    });
+
+    // どのストロークにも触れない eraseArea は無効 op としてブロードキャストされない
+    b.ws.send(
+      JSON.stringify({ type: 'op', op: { type: 'eraseArea', points: [{ x: 0, y: 900 }], r: 5 } }),
+    );
+    b.ws.send(JSON.stringify({ type: 'cursor', x: 3, y: 3 }));
+    expect(await a.next()).toMatchObject({ type: 'cursor', x: 3, y: 3 });
   });
 
   it('付箋の作成・移動・編集が同期され、SQLite に永続化される', async () => {
