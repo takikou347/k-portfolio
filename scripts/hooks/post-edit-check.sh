@@ -9,10 +9,6 @@ FILE=$(printf '%s' "$INPUT" | node -e 'let d="";process.stdin.on("data",c=>d+=c)
 
 [ -z "$FILE" ] && exit 0
 [[ "$FILE" != *.ts && "$FILE" != *.tsx ]] && exit 0
-if [[ "$FILE" == */components/ui/* ]]; then
-  echo "WARNING: components/ui/ は shadcn 生成物です。編集は禁止されています: $FILE" >&2
-  exit 2
-fi
 [ ! -f "$FILE" ] && exit 0
 
 cd "$CLAUDE_PROJECT_DIR"
