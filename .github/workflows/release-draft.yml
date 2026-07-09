@@ -1,0 +1,57 @@
+# リリース PR の自動下書き: develop が main より進んでいたら develop → main の
+# リリース PR を作成・更新する。LLM は使わない (決定論的な bash + gh のみ)。
+# merge は従来どおり人間の担当 (merge すると deploy.yml が本番デプロイを実行する)。
+name: Release PR Draft
+
+on:
+  schedule:
+    - cron: "0 9 * * 5" # 毎週金曜 18:00 JST
+  workflow_dispatch: # いつでも手動で下書きを作れる
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create or update release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main develop
+          AHEAD=$(git rev-list --count origin/main..origin/develop)
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "develop は main と同期済み。リリース PR は不要"
+            exit 0
+          fi
+
+          # リリースノート: main..develop の merge コミットから PR 番号とタイトルを抽出
+          NOTES=$(git log origin/main..origin/develop --merges --pretty=format:'%s%x09%b' \
+            | awk -F'\t' '{
+                if (match($1, /#[0-9]+/)) {
+                  n = substr($1, RSTART, RLENGTH);
+                  split($2, b, "\n");
+                  printf "- %s %s\n", n, b[1]
+                }
+              }')
+          [ -n "$NOTES" ] || NOTES="- (merge コミットなし: git log origin/main..origin/develop を確認してください)"
+
+          BODY=$(printf '## リリース内容\n\n%s\n\n---\nこの PR は release-draft workflow が自動生成した下書きです。\nmerge は人間が行ってください (merge すると deploy.yml が本番デプロイを実行します)。\n' "$NOTES")
+
+          EXISTING=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" --body "$BODY"
+            echo "既存のリリース PR #$EXISTING の本文を更新しました"
+          else
+            gh pr create --base main --head develop \
+              --title "release: $(date +%Y-%m-%d)" \
+              --body "$BODY"
+            echo "リリース PR を作成しました"
+          fi
