@@ -26,7 +26,7 @@ jobs:
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (SETUP.md 参照)"
+            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (README「デプロイと Secrets」参照)"
           fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'

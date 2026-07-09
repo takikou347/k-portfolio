@@ -19,6 +19,7 @@
 | --color-paper-rose | #F2D5D0 | 画用紙 桃 |
 | --color-paper-sky | #D3E4EC | 画用紙 空 |
 | --color-magnet | #C0392B | マグネット (赤)。カーソルの名札にも使用 |
+| --color-magnet-blue | #3D6FA8 | マグネット (青)。カーソル色のバリエーション |
 | --color-ink | #3A3630 | 付箋上の鉛筆文字 |
 
 ## タイポグラフィ
