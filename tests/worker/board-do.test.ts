@@ -129,6 +129,47 @@ describe('BoardDO: presence とライブカーソル', () => {
     expect(snapD.state.strokes).toEqual([]);
   });
 
+  it('eraseArea op で触れた部分だけが消え、分割された断片が永続化される', async () => {
+    const line: Stroke = {
+      id: 'line-1',
+      color: 'white',
+      points: Array.from({ length: 11 }, (_, i) => ({ x: i * 10, y: 0 })),
+    };
+
+    const a = await connect('erase-area-board', 'はなこ');
+    await a.next(); // snapshot
+    const b = await connect('erase-area-board', 'たろう', 'blue');
+    await b.next(); // snapshot
+    await a.next(); // join presence
+
+    a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addStroke', stroke: line } }));
+    await b.next();
+
+    // B が中央をなぞると、op がそのまま A にブロードキャストされる
+    const erase = { type: 'eraseArea', points: [{ x: 50, y: 0 }], r: 5 };
+    b.ws.send(JSON.stringify({ type: 'op', op: erase }));
+    expect(await a.next()).toEqual({ type: 'op', op: erase });
+
+    // 後から入る C の snapshot は分割後の 2 断片 (中央の点は消えている) = 永続化されている
+    const c = await connect('erase-area-board', 'じろう', 'yellow');
+    const snapC = await c.next();
+    expect(snapC.type).toBe('snapshot');
+    if (snapC.type !== 'snapshot') return;
+    expect(snapC.state.strokes).toHaveLength(2);
+    const [front, back] = snapC.state.strokes;
+    expect(front.points).toEqual(line.points.slice(0, 5));
+    expect(back.points).toEqual(line.points.slice(6));
+    expect(front.id).not.toBe('line-1');
+    await a.next(); // C の join presence を消費
+
+    // どのストロークにも触れない eraseArea は無効 op としてブロードキャストされない
+    b.ws.send(
+      JSON.stringify({ type: 'op', op: { type: 'eraseArea', points: [{ x: 0, y: 900 }], r: 5 } }),
+    );
+    b.ws.send(JSON.stringify({ type: 'cursor', x: 3, y: 3 }));
+    expect(await a.next()).toMatchObject({ type: 'cursor', x: 3, y: 3 });
+  });
+
   it('付箋の作成・移動・編集が同期され、SQLite に永続化される', async () => {
     const a = await connect('sticky-board', 'はなこ');
     await a.next(); // snapshot

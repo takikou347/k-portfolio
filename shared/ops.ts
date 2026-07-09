@@ -1,3 +1,4 @@
+import { eraseStrokePath } from './erase';
 import { MAX_STICKIES, MAX_STROKES } from './limits';
 import type { Op, Sticky, Stroke } from './schema';
 
@@ -41,6 +42,24 @@ export function applyOp(state: BoardState, op: Op): BoardState {
       const strokes = state.strokes.filter((s) => s.id !== op.strokeId);
       if (strokes.length === state.strokes.length) return state;
       return { ...state, strokes };
+    }
+    case 'eraseArea': {
+      // 部分消し: 軌跡に触れた部分を取り除き、残った区間を断片に分割して元の位置に置く
+      let changed = false;
+      const strokes: Stroke[] = [];
+      for (const s of state.strokes) {
+        const fragments = eraseStrokePath(s, op.points, op.r);
+        if (fragments === null) {
+          strokes.push(s);
+        } else {
+          changed = true;
+          strokes.push(...fragments);
+        }
+      }
+      if (!changed) return state;
+      const trimmed =
+        strokes.length > MAX_STROKES ? strokes.slice(strokes.length - MAX_STROKES) : strokes;
+      return { ...state, strokes: trimmed };
     }
     case 'addSticky': {
       if (state.stickies.some((s) => s.id === op.sticky.id)) return state;
