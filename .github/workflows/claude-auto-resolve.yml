@@ -39,6 +39,12 @@ jobs:
           prompt: |
             あなたはこのリポジトリの夜間バッチ担当です。未対応の Issue を自動処理してください。
 
+            ## 前回バッチの PR の merge
+            0. 過去バッチが作成したオープン PR (base: develop、ブランチ auto/issue-*) を確認し、
+               CI が green かつレビュー指摘 [must] がゼロのものを merge する。
+               条件を満たさない PR は理由をコメントして残す。
+               develop → main のリリース PR は絶対に merge しない (人間の担当)
+
             ## 対象の選定
             1. `gh issue list --state open --json number,title,labels` で一覧を取得
             2. 除外: ラベル needs-info / in-progress / health-report / report が付いたもの、
@@ -57,7 +63,8 @@ jobs:
               needs-info ラベルを付けて in-progress を外す
 
             ## 禁止事項
-            - PR を自分で merge しない (merge は人間の担当)
+            - 作成した直後の PR をその場で merge しない (merge は翌日以降、CI とレビューの結果を確認してから)
+            - develop → main のリリース PR を merge しない (本番デプロイの最終ゲートは人間)
             - main / develop に直接 push しない (PR の base は develop)
             - 検証未通過のまま PR を作らない
           claude_args: |

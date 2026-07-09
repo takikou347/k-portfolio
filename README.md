@@ -64,7 +64,8 @@ scripts/hooks/{guard-bash,post-edit-check,verify-stop}.sh
 2. **Stop ゲートの実演**: テストが落ちる状態で「完了して」→ verify-stop.sh が終了を拒否、自己修正
 3. **無人運用の実演**: 「リアクションに 🎉 を追加してほしい」と普通の Issue を書く
    → 即時トリアージ → claude-auto-resolve を workflow_dispatch で手動発火 (本来は毎日 03:00 JST)
-   → 実装 PR が自動で立つ → 自動レビュー → 人間は merge を押すだけ → 自動デプロイ。
+   → 実装 PR が自動で立つ → 自動レビュー → CI green + [must] ゼロなら Claude が develop へ merge
+   → 人間はリリース PR (develop → main) を押すだけ → 自動デプロイ。
    毎朝のヘルスチェックと週次レポートも Issue に積まれていく
 4. **クライマックス**: 公開 URL の QR を聴衆に配り、全員でその場の黒板に落書きする。
    「この会場の全員が今、Claude が一人で作ったインフラの上で同時接続しています」で締める
