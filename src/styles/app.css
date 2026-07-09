@@ -118,12 +118,17 @@
   transform: translateY(-7px);
   outline: 2px solid var(--color-chalk-yellow);
   outline-offset: 3px;
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.4),
+    0 0 10px rgba(239, 217, 139, 0.5);
 }
 
 .tool-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-width: 44px;
   min-height: 44px;
   font-family: var(--font-ui);
   font-size: 12px;
@@ -141,9 +146,16 @@
   background: rgba(0, 0, 0, 0.34);
 }
 
+/* 選択中はアウトラインに加えて暖色の塗りで「押されている」状態を強調する */
 .tool-btn.on {
+  color: var(--color-board);
+  background: var(--color-chalk-yellow);
   outline: 2px solid var(--color-chalk-yellow);
   outline-offset: 2px;
+}
+
+.tool-btn.on:hover {
+  background: var(--color-chalk-yellow);
 }
 
 .tool-btn:disabled {
@@ -155,9 +167,33 @@
   background: rgba(0, 0, 0, 0.22);
 }
 
-.tray-gap {
-  width: 8px;
+/* 機能グループ (描画色 / 消しゴム・とりけし / 付箋 / リアクション) */
+.tray-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: none;
+}
+
+/* グループ間の仕切り */
+.tray-sep {
+  width: 1px;
+  height: 30px;
+  flex: none;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 1px;
+}
+
+/* リアクションは編集ツールと離して誤タップを防ぐ */
+.tray-group-reactions {
+  gap: 2px;
+  padding-left: 2px;
+}
+
+/* 横スクロールのアフォーダンス (既定は非表示、SP でのみ表示) */
+.tray-fade {
+  display: none;
 }
 
 .emoji-btn {
@@ -790,6 +826,21 @@
     justify-content: flex-start;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    /* 右端が見切れて「まだ続く」ことが分かるよう最後に余白を足す */
+    padding-right: 40px;
+  }
+
+  /* SP のみ: 右端フェードで横スクロールできることを示すアフォーダンス */
+  .tray-fade {
+    display: block;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    height: 58px;
+    background: linear-gradient(to right, rgba(138, 106, 72, 0), var(--color-frame));
+    pointer-events: none;
+    z-index: 11;
   }
 
   .tool-label {
