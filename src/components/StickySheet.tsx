@@ -46,7 +46,7 @@ export default function StickySheet() {
               key={color}
               type="button"
               className={`paper-color-btn paper-${color}${sticky.color === color ? ' on' : ''}`}
-              aria-label={`画用紙の色を変える (${color})`}
+              aria-label={`付箋の色を変える (${color})`}
               disabled={locked}
               onClick={() =>
                 useStore.getState().applyLocalOp({ type: 'recolorSticky', id: sticky.id, color })

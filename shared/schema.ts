@@ -43,7 +43,7 @@ export const strokeSchema = z.object({
 });
 export type Stroke = z.infer<typeof strokeSchema>;
 
-/** 画用紙 (付箋) の色 */
+/** 付箋の色 (素材の見た目は画用紙。UI 上の呼称は「付箋」に統一) */
 export const paperColorSchema = z.enum(['cream', 'rose', 'sky']);
 export type PaperColor = z.infer<typeof paperColorSchema>;
 
