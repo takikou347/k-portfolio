@@ -1,0 +1,118 @@
+# CI 自動修復: AI が作成したブランチ (auto/* / claude/* / <type>/issue-*) の PR で
+# CI が失敗したら、原因を診断して修正 push する。修正 push は GitHub App トークン経由の
+# ため CI が再実行され、green になるまでループが閉じる。
+# 暴走防止: 同一 PR での自動修復は 2 回まで。試行回数は workflow 自身が着手前に
+# PR へ残すマーカーコメント ([ci-autofix-attempt]) で決定論的にカウントする。
+# 超えたら PR にコメントして人間へ引き継ぐ。
+name: Claude CI Autofix
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: autofix-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  autofix:
+    # head_repository の検証: フォークのブランチで CI を失敗させて、本体リポジトリの
+    # 書き込み権限ジョブを起動させる攻撃 (pwn request) を決定論的に遮断する
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+      id-token: write
+    steps:
+      - name: Check secrets / 対象ブランチ判定
+        id: gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (README「デプロイと Secrets」参照)"
+            exit 0
+          fi
+          # 自動修復の対象は AI が運用するブランチのみ (人間のブランチには手を出さない)。
+          # 文字種も限定し、ブランチ名経由のインジェクション面を減らす
+          if ! printf '%s' "$BRANCH" | grep -qE '^(auto/issue-[0-9]+|claude/[A-Za-z0-9._-]+|(feat|fix|docs|style|refactor|perf|test|chore|ci)/issue-[0-9]+(-[A-Za-z0-9._-]+)?)$'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::対象外ブランチ ($BRANCH) のためスキップ"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+      - name: 試行回数ガード (同一 PR 2 回まで・決定論的)
+        id: attempts
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::オープン PR が見つからないためスキップ"
+            exit 0
+          fi
+          # 試行回数は LLM の自己申告 (コミットメッセージ) ではなく、この workflow 自身が
+          # 着手前に PR へ残すマーカーコメントで数える (github-actions bot のコメントのみ)。
+          # LLM がマーカーを付け忘れてもカウントが壊れない = 決定論的な上限
+          COUNT=$(gh pr view "$PR" --json comments \
+            --jq '[.comments[] | select(.author.login == "github-actions") | .body | select(contains("[ci-autofix-attempt]"))] | length')
+          echo "これまでの自動修復試行: $COUNT 回"
+          if [ "$COUNT" -ge 2 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            gh pr comment "$PR" --body "🤖 CI の自動修復を 2 回試みましたが green になりませんでした。これ以上の自動修復は行いません。人間の確認をお願いします (Actions の失敗ログ参照)。"
+            exit 0
+          fi
+          gh pr comment "$PR" --body "🤖 CI の失敗を検知しました。自動修復を開始します ($((COUNT + 1))/2 回目)。 [ci-autofix-attempt]"
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip != 'true' && steps.attempts.outputs.skip != 'true'
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true' && steps.attempts.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.skip != 'true' && steps.attempts.outputs.skip != 'true'
+      - uses: anthropics/claude-code-action@v1
+        if: steps.gate.outputs.skip != 'true' && steps.attempts.outputs.skip != 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            ブランチ `${{ github.event.workflow_run.head_branch }}` の PR で CI (run id:
+            ${{ github.event.workflow_run.id }}) が失敗しました。修復してください。
+
+            1. `gh run view ${{ github.event.workflow_run.id }} --log-failed` で失敗ログを読み、
+               原因を特定する
+            2. このリポジトリの規約 (CLAUDE.md / .claude/rules/) に従って修正する。
+               テストが仕様として正しく実装が間違っている場合は実装を直す。
+               テスト自体が誤っている場合のみテストを直し、理由をコミットメッセージに書く
+            3. `pnpm typecheck && pnpm lint && pnpm test` をローカルで全パスさせる
+               (E2E 起因の失敗なら `pnpm test:e2e` も実行する)
+            4. Conventional Commits 形式 + 末尾に `[ci-autofix]` マーカーを付けてコミットする
+               (例: `fix: CI の型エラーを修正 (#12) [ci-autofix]`)。履歴から自動修復
+               コミットを識別できるようにするため
+            5. 同じブランチに push する (main / develop へは絶対に push しない)
+            6. PR に修正内容の要約を 3 行以内でコメントする
+
+            環境要因 (ネットワーク・レート制限・flaky) で修正不能と判断した場合は、
+            push せずその診断を PR にコメントして終了する。
+          claude_args: |
+            --model sonnet
+            --max-turns 40

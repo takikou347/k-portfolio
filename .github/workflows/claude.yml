@@ -1,0 +1,77 @@
+# @claude メンション応答: Issue / PR のコメントで @claude に依頼すると、
+# その場で調査・回答・実装 (PR 作成) までを行う。GitHub 上から AI に指示する入口。
+# Git 運用ルール (PR の base は develop、直 push 禁止など) は CLAUDE.md と
+# ブランチ保護 Ruleset が担保する。
+name: Claude Mention
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, assigned]
+
+concurrency:
+  group: claude-mention-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  respond:
+    # @claude を含むイベントだけに反応する (全コメントで API を消費しない)。
+    # セキュリティ: このジョブは書き込み権限 + ANTHROPIC_API_KEY を持つため、
+    # (1) 起動できるのはリポジトリの OWNER / MEMBER / COLLABORATOR のみ、
+    # (2) PR 系イベントはフォーク PR を除外する (フォークのコードを書き込み権限で扱わない)
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: read
+      id-token: write
+    steps:
+      - name: Check secrets
+        id: gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (README「デプロイと Secrets」参照)"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.skip != 'true'
+      - uses: anthropics/claude-code-action@v1
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --model sonnet
+            --max-turns 40

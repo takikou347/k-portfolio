@@ -1,0 +1,2 @@
+# フォームを使わない自由記述の Issue も許可する (AI が API 経由で作る Issue のため)
+blank_issues_enabled: true

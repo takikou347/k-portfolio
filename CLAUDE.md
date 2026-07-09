@@ -46,7 +46,8 @@
 - サブエージェントのモデルは役割で使い分ける (設定済み): レビュー = code-reviewer (sonnet)、
   テスト全件実行・集計 = test-runner (haiku)。新しいエージェントを足すときも同じ基準で選ぶ
 - CI 側のモデルも用途別に固定済み: triage / health / 週次レポート = haiku、
-  PR レビュー / 夜間実装 = sonnet。ワークフローの `--model` を外さない
+  PR レビュー / 夜間実装 / @claude 応答 / CI 自動修復 = sonnet。ワークフローの `--model` を外さない。
+  リリース PR 下書き (release-draft.yml) は LLM 不使用の決定論的スクリプト
 - ダイナミックワークフローは明示的なオプトイン (「ワークフローで」/ ultracode) のときだけ使う。
   多数のエージェントを生みトークン消費が大きい — まず小さいスコープで試してから広げる
 - 保存済みワークフロー `/exhaustive-review` — スライス完了時・push 前の多角レビュー
@@ -80,9 +81,13 @@
 - **merge の担当**: develop 向けの PR は、CI が green かつレビュー指摘 [must] がゼロであることを
   確認したうえで Claude が merge してよい (作成直後の PR を検証確認なしに merge しない)。
   **develop → main のリリース PR の merge は必ず人間が行う** (本番デプロイの最終ゲート)
+- **CI が落ちた AI ブランチの PR** は claude-autofix-ci.yml が自動修復する。試行は同一 PR 2 回まで —
+  workflow 自身が PR に残すマーカーコメントで決定論的にカウントし、超えたら人間へ引き継ぐ
 
 ### リリース (develop → main)
 
+- リリース PR は release-draft.yml が**毎週金曜 18:00 JST に自動で下書き・更新**する
+  (workflow_dispatch で随時実行可)。手動で作る場合も同じ形式にする
 - 対象の Issue がすべて develop に入ったタイミングで、**develop → main のリリース PR** を作成する
 - リリース PR の本文に含まれる Issue / PR を列挙する — これがリリースノートになる
   (merge 後に GitHub Release を作成すると `.github/release.yml` のカテゴリで自動生成できる)
