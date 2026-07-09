@@ -12,12 +12,16 @@ import { chalkCssColor, drawStroke } from './chalk';
 import { strokeHitsPoint } from './hit-test';
 import { screenToBoard } from './view';
 
-/** 黒板消しの届く範囲 (画面 px。ズームに合わせてボード座標へ換算する) */
-const ERASE_RADIUS_PX = 14;
+/**
+ * 黒板消しの当たり半径 (画面 px。ズームに合わせてボード座標へ換算する)。
+ * 実物のフェルト面は幅 5〜6cm ≒ 直径 44px 相当。半径 22px でその実寸に近づける。
+ */
+const ERASE_RADIUS_PX = 22;
 
 type OwnDraft = { id: string; color: ChalkColor; points: Point[]; pending: Point[] };
 type Particle = { x: number; y: number; vy: number; life: number; total: number };
-type Smudge = { x: number; y: number; life: number; total: number };
+/** 拭き跡。r = ボード座標での半径 (消しゴム幅と一致させ、帯状の跡に見せる) */
+type Smudge = { x: number; y: number; r: number; life: number; total: number };
 
 function reducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -38,6 +42,8 @@ export default function BoardCanvas() {
 
   // E2E とプレースホルダー判定のための描画本数フック
   const strokeCount = useStore((s) => s.board.strokes.length);
+  // 黒板消し選択中はカーソルを実物の黒板消し (フェルト+木) にする
+  const tool = useStore((s) => s.tool);
 
   // 盤面・プレビュー・ビューの変化で再描画をスケジュール
   useEffect(
@@ -87,11 +93,16 @@ export default function BoardCanvas() {
         ctx.globalAlpha = Math.max(0, (p.life / p.total) * 0.9);
         ctx.fillRect(p.x, p.y, 1.6, 1.6);
       }
-      // 黒板消しの拭き跡 (薄く白が残る)
+      // 黒板消しの拭き跡: 消しゴム幅の柔らかい円を重ね、帯状の擦れ跡として残す
       for (const s of smudgesRef.current) {
-        ctx.globalAlpha = Math.max(0, (s.life / s.total) * 0.07);
+        const a = Math.max(0, s.life / s.total);
+        const g = ctx.createRadialGradient(s.x, s.y, s.r * 0.25, s.x, s.y, s.r);
+        g.addColorStop(0, `rgba(242, 240, 230, ${0.16 * a})`);
+        g.addColorStop(0.7, `rgba(242, 240, 230, ${0.06 * a})`);
+        g.addColorStop(1, 'rgba(242, 240, 230, 0)');
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 18, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -193,11 +204,15 @@ export default function BoardCanvas() {
     const hit = board.strokes.find((s) => strokeHitsPoint(s, p, threshold));
     if (hit) {
       applyLocalOp({ type: 'eraseStroke', strokeId: hit.id });
-      if (!reducedMotion()) {
-        smudgesRef.current.push({ x: p.x, y: p.y, life: 1.4, total: 1.4 });
-      }
-      dirtyRef.current = true;
+      // 拭き取ったチョークの粉が舞う
+      spawnDust(p, view.scale, 3);
     }
+    // なぞった範囲に消しゴム幅ぶんの擦れ跡を残す (帯状に見える)
+    if (!reducedMotion()) {
+      smudgesRef.current.push({ x: p.x, y: p.y, r: threshold, life: 1.4, total: 1.4 });
+      if (smudgesRef.current.length > 120) smudgesRef.current.shift();
+    }
+    dirtyRef.current = true;
   };
 
   const boardPoint = (e: React.PointerEvent): Point => {
@@ -283,7 +298,7 @@ export default function BoardCanvas() {
   return (
     <canvas
       ref={canvasRef}
-      className="board-canvas"
+      className={`board-canvas${tool === 'eraser' ? ' tool-eraser' : ''}`}
       data-strokes={strokeCount}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
