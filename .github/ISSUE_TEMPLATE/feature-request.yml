@@ -1,0 +1,34 @@
+name: 機能要望
+description: 追加してほしい機能・改善を提案する
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        完了条件まで書いてもらえると、毎日 03:00 JST の自動対応バッチがそのまま実装に着手できます。
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景 / 困りごと
+      description: なぜこの機能が欲しいのか
+      placeholder: 付箋の文字が小さくて、遠目に見たとき読めない
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: やりたいこと
+      description: どんな動きになってほしいか。画面や操作のイメージがあれば具体的に
+      placeholder: 付箋の文字サイズを + / − ボタンで変えられるようにする
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      description: どうなったら「できた」と言えるか。自動対応バッチはここを受け入れ条件として使います
+      placeholder: |
+        - 付箋の編集時に文字サイズを変更できる
+        - 変更が他の参加者の画面にも同期される
+    validations:
+      required: true
