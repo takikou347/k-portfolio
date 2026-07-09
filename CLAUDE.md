@@ -27,6 +27,7 @@
 - `worker/` — Worker エントリと Durable Object (`worker/board-do.ts`)
 - `shared/` — ops 型定義・reducer・zod スキーマ (クライアント/DO 共用。ここが単体テストの主戦場)
 - `tests/` — テスト
+- `docs/` — 開発者向けドキュメント (アーキテクチャ / WebSocket プロトコル仕様)
 - `design/DESIGN.md` — デザインシステム / `.github/workflows/` — CI・デプロイ・@claude 応答
 
 ## 原則

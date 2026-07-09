@@ -10,7 +10,8 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 ```
 
 - `boardId`: `[A-Za-z0-9_-]{1,64}`。SPA 側は `/b/<boardId>` の URL から導出し、
-  未指定 (`/`) は `main` を使う。1 boardId = 1 Durable Object
+  この形式にマッチしないパス (`/` など) はすべて `main` にフォールバックする。
+  1 boardId = 1 Durable Object
 - `name`: 2〜8 文字 / `color`: `red | blue | yellow | pink` (カーソルマグネットの色)。
   `joinSchema` の検証に失敗すると **400**
 - WebSocket でない (Upgrade ヘッダなし) リクエストは **426**
