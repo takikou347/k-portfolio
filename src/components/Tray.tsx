@@ -68,13 +68,13 @@ export default function Tray({ onUndo, canUndo = false, onReact }: Props) {
       <button
         type="button"
         className={`tool-btn${tool === 'sticky' ? ' on' : ''}`}
-        aria-label="画用紙 (付箋)"
+        aria-label="付箋"
         aria-pressed={tool === 'sticky'}
         disabled={full}
         onClick={() => setTool(tool === 'sticky' ? 'chalk' : 'sticky')}
       >
         <StickyNote size={16} aria-hidden />
-        <span className="tool-label">画用紙</span>
+        <span className="tool-label">付箋</span>
       </button>
       <span className="tray-gap" aria-hidden />
       {REACTION_EMOJIS.map((emoji) => (

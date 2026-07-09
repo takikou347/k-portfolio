@@ -218,7 +218,7 @@ export default function StickyLayer() {
                     className={`paper-color-btn paper-${color}${
                       sticky.color === color ? ' on' : ''
                     }`}
-                    aria-label={`画用紙を${PAPER_LABELS[color]}色にする`}
+                    aria-label={`付箋を${PAPER_LABELS[color]}色にする`}
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() =>
                       useStore.getState().applyLocalOp({

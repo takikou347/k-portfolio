@@ -7,8 +7,8 @@ test('付箋の作成・編集・移動が同期される', async ({ browser }) 
   const b = await openBoard(browser, board, 'たろう', { color: 'blue' });
   await expect(a.locator('.presence-badge')).toHaveText(/2 人/);
 
-  // A が画用紙ツールで付箋を作り、その場で書く
-  await a.getByRole('button', { name: '画用紙 (付箋)' }).click();
+  // A が付箋ツールで付箋を作り、その場で書く
+  await a.getByRole('button', { name: '付箋', exact: true }).click();
   await a.mouse.click(500, 400);
   await expect(a.locator('.paper-editor')).toBeVisible();
   await a.keyboard.type('こんにちは');
