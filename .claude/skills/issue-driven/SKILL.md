@@ -21,8 +21,8 @@ main と develop へは直 push しない・削除しない。
    1 コミット = 1 論理変更。フォーマット差分や無関係な修正を混ぜない
 5. **PR 作成**: **base は develop**。対象 Issue 1 件のみを `Closes #<番号>` で紐付ける。
    PR 本文に変更概要と検証 3 点セット (`pnpm typecheck && pnpm lint && pnpm test`) の結果を貼る
-6. **レビュー対応**: code-reviewer エージェントと CI の [must] 指摘をすべて解消する。
-   merge は人間の担当 — 自分で merge しない
+6. **レビュー対応と merge**: code-reviewer エージェントと CI の [must] 指摘をすべて解消する。
+   CI が green かつ [must] ゼロを確認できたら、develop 向け PR は Claude が merge してよい
 
 ## リリース手順 (develop → main)
 
@@ -36,6 +36,8 @@ main と develop へは直 push しない・削除しない。
 
 ## 禁止事項
 
+- リリース PR (develop → main) を Claude が merge すること — 本番デプロイの最終ゲートは人間
+- CI とレビューの確認を経ずに PR を merge すること
 - main / develop へ直接 push すること (hooks が遮断する)
 - main / develop を削除すること
 - main からブランチを切ること (作業ブランチは必ず develop 起点)
