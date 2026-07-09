@@ -103,6 +103,31 @@ describe('strokeSchema / op メッセージ', () => {
     });
   });
 
+  it('w/h/fontSize の無い (旧) 付箋はデフォルト値が補完される (後方互換)', () => {
+    const parsed = clientMessageSchema.safeParse({
+      type: 'op',
+      op: { type: 'addSticky', sticky: { id: 'n1', x: 10, y: 20, color: 'rose', text: '' } },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === 'op' && parsed.data.op.type === 'addSticky') {
+      expect(parsed.data.op.sticky).toMatchObject({ w: 180, h: 140, fontSize: 15 });
+    }
+  });
+
+  it('resizeSticky op を受け入れ、範囲外の w/fontSize は拒否する', () => {
+    const ok = (op: unknown) =>
+      expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(true);
+    const ng = (op: unknown) =>
+      expect(clientMessageSchema.safeParse({ type: 'op', op }).success).toBe(false);
+    ok({ type: 'resizeSticky', id: 'n1', w: 240, h: 200, fontSize: 22 });
+    // 範囲外 (w が最大超過)
+    ng({ type: 'resizeSticky', id: 'n1', w: 9999, h: 200, fontSize: 22 });
+    // 範囲外 (fontSize が最小未満)
+    ng({ type: 'resizeSticky', id: 'n1', w: 240, h: 200, fontSize: 4 });
+    // 整数でない w
+    ng({ type: 'resizeSticky', id: 'n1', w: 200.5, h: 200, fontSize: 22 });
+  });
+
   it('reaction は 4 種の絵文字のみ受け入れる', () => {
     for (const emoji of ['👏', '✨', '💮', '❤️']) {
       expect(clientMessageSchema.safeParse({ type: 'reaction', emoji, x: 0, y: 0 }).success).toBe(

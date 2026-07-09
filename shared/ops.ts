@@ -53,6 +53,13 @@ export function applyOp(state: BoardState, op: Op): BoardState {
       return updateSticky(state, op.id, (s) => ({ ...s, text: op.text }));
     case 'recolorSticky':
       return updateSticky(state, op.id, (s) => ({ ...s, color: op.color }));
+    case 'resizeSticky':
+      return updateSticky(state, op.id, (s) => ({
+        ...s,
+        w: op.w,
+        h: op.h,
+        fontSize: op.fontSize,
+      }));
     case 'deleteSticky': {
       const stickies = state.stickies.filter((s) => s.id !== op.id);
       if (stickies.length === state.stickies.length) return state;

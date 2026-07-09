@@ -15,7 +15,7 @@ function stroke(id: string): Stroke {
 }
 
 function sticky(id: string): Sticky {
-  return { id, x: 100, y: 100, color: 'cream', text: 'めも' };
+  return { id, x: 100, y: 100, color: 'cream', text: 'めも', w: 180, h: 140, fontSize: 15 };
 }
 
 describe('applyOp: addStroke', () => {
@@ -119,5 +119,18 @@ describe('applyOp: 付箋 (addSticky / moveSticky / editSticky / recolorSticky /
     const gone = applyOp(state, { type: 'deleteSticky', id: 'n1' });
     expect(gone.stickies).toHaveLength(0);
     expect(applyOp(gone, { type: 'deleteSticky', id: 'n1' })).toBe(gone);
+  });
+
+  it('resizeSticky で w/h/fontSize だけが変わる', () => {
+    const state = applyOp(emptyBoardState(), { type: 'addSticky', sticky: sticky('n1') });
+    const next = applyOp(state, { type: 'resizeSticky', id: 'n1', w: 240, h: 200, fontSize: 22 });
+    expect(next.stickies[0]).toEqual({ ...sticky('n1'), w: 240, h: 200, fontSize: 22 });
+  });
+
+  it('存在しない付箋への resizeSticky は無視される (同一参照を返す)', () => {
+    const state = applyOp(emptyBoardState(), { type: 'addSticky', sticky: sticky('n1') });
+    expect(
+      applyOp(state, { type: 'resizeSticky', id: 'ghost', w: 200, h: 200, fontSize: 20 }),
+    ).toBe(state);
   });
 });

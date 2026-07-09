@@ -136,7 +136,16 @@ describe('BoardDO: presence とライブカーソル', () => {
     await b.next(); // snapshot
     await a.next(); // join presence
 
-    const sticky = { id: 'note-1', x: 100, y: 120, color: 'rose', text: 'こんにちは' };
+    const sticky = {
+      id: 'note-1',
+      x: 100,
+      y: 120,
+      color: 'rose',
+      text: 'こんにちは',
+      w: 180,
+      h: 140,
+      fontSize: 15,
+    };
     a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addSticky', sticky } }));
     expect(await b.next()).toEqual({ type: 'op', op: { type: 'addSticky', sticky } });
 
@@ -155,12 +164,33 @@ describe('BoardDO: presence とライブカーソル', () => {
       op: { type: 'editSticky', text: 'かきなおし' },
     });
 
+    // サイズ・文字サイズ変更の同期
+    a.ws.send(
+      JSON.stringify({
+        type: 'op',
+        op: { type: 'resizeSticky', id: 'note-1', w: 240, h: 200, fontSize: 22 },
+      }),
+    );
+    expect(await b.next()).toMatchObject({
+      type: 'op',
+      op: { type: 'resizeSticky', w: 240, h: 200, fontSize: 22 },
+    });
+
     // 後から入る C の snapshot に最新の付箋が含まれる (永続化)
     const c = await connect('sticky-board', 'じろう', 'yellow');
     const snapC = await c.next();
     if (snapC.type !== 'snapshot') return;
     expect(snapC.state.stickies).toEqual([
-      { id: 'note-1', x: 300, y: 40, color: 'rose', text: 'かきなおし' },
+      {
+        id: 'note-1',
+        x: 300,
+        y: 40,
+        color: 'rose',
+        text: 'かきなおし',
+        w: 240,
+        h: 200,
+        fontSize: 22,
+      },
     ]);
   });
 
