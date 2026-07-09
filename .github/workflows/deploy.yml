@@ -21,7 +21,7 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Cloudflare secrets 未設定のためデプロイをスキップ (SETUP.md 参照)"
+            echo "::notice::Cloudflare secrets 未設定のためデプロイをスキップ (README「デプロイと Secrets」参照)"
           fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'

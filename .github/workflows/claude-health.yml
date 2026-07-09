@@ -25,7 +25,7 @@ jobs:
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Secrets 未設定のためスキップ (SETUP.md 参照)"
+            echo "::notice::Secrets 未設定のためスキップ (README「デプロイと Secrets」参照)"
           fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'
