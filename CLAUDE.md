@@ -57,7 +57,10 @@
 
 - **main = デプロイブランチ**。main への push で本番デプロイが走る。リリース以外で触らない
 - **develop = 統合ブランチ**。日々の修正・機能追加はすべて develop に集める
-- **main と develop への直 push は禁止** (hooks が決定論的に遮断)。変更は必ず PR 経由
+- **main と develop への直 push は禁止** (ローカルは hooks、クラウド (Actions) は GitHub の
+  ブランチ保護 Ruleset が決定論的に遮断)。変更は必ず PR 経由。`guard-bash.sh` は CI ランナー上では
+  発火しないため、auto-resolve の直 push / リリース PR merge 禁止はブランチ保護でも担保する
+  (README「デプロイと Secrets」/ `scripts/setup-branch-protection.sh`)
 - **main / develop はマージ後も削除しない** (永続ブランチ)。Issue ブランチはマージ後に消してよい
 
 ### 日々の開発

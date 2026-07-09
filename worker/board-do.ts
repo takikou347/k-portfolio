@@ -7,6 +7,7 @@ import {
   type Op,
   type ServerMessage,
   type Sticky,
+  stickySchema,
   type Stroke,
   type User,
 } from '../shared/schema';
@@ -158,7 +159,10 @@ export class BoardDO extends DurableObject<Env> {
     }
     const stickies: Sticky[] = [];
     for (const row of this.ctx.storage.sql.exec('SELECT data FROM stickies ORDER BY id ASC')) {
-      stickies.push(JSON.parse(row.data as string) as Sticky);
+      // スキーマで parse し、w/h/fontSize 未指定の (旧) 付箋にはデフォルトを補完する = 後方互換。
+      // 壊れた行は黙って捨てる (盤面全体を落とさない)
+      const parsed = stickySchema.safeParse(JSON.parse(row.data as string));
+      if (parsed.success) stickies.push(parsed.data);
     }
     this.#board = { strokes, stickies };
     return this.#board;
@@ -206,7 +210,8 @@ export class BoardDO extends DurableObject<Env> {
       }
       case 'moveSticky':
       case 'editSticky':
-      case 'recolorSticky': {
+      case 'recolorSticky':
+      case 'resizeSticky': {
         // reducer 適用後のキャッシュが正。該当行を丸ごと書き直す
         const updated = after.stickies.find((s) => s.id === op.id);
         if (updated) {

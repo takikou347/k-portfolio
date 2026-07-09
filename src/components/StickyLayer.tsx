@@ -1,9 +1,14 @@
-import { Trash2 } from 'lucide-react';
+import { Maximize2, Minimize2, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { CURSOR_THROTTLE_MS, STICKY_TEXT_MAX } from '../../shared/limits';
+import {
+  CURSOR_THROTTLE_MS,
+  STICKY_FONT_STEP,
+  STICKY_SIZE_STEP,
+  STICKY_TEXT_MAX,
+} from '../../shared/limits';
 import type { Sticky } from '../../shared/schema';
 import { screenToBoard, type Point } from '../board/view';
-import { PAPER_COLORS, PAPER_LABELS } from '../lib/papers';
+import { nextStickyDims, PAPER_COLORS, PAPER_LABELS } from '../lib/papers';
 import { useStore } from '../store/store';
 
 /** SP: 長押しでドラッグ開始 (スクロール/パンとの誤爆防止) */
@@ -148,6 +153,11 @@ export default function StickyLayer() {
     setEditingId(null);
   };
 
+  const resize = (sticky: Sticky, sizeDelta: number, fontDelta: number) => {
+    const { w, h, fontSize } = nextStickyDims(sticky, sizeDelta, fontDelta);
+    useStore.getState().applyLocalOp({ type: 'resizeSticky', id: sticky.id, w, h, fontSize });
+  };
+
   return (
     <>
       {stickies.map((sticky) => {
@@ -160,7 +170,13 @@ export default function StickyLayer() {
             className={`paper paper-${sticky.color}${dragging ? ' drag' : ''}${
               snapId === sticky.id ? ' snap' : ''
             }`}
-            style={{ left: pos.x, top: pos.y }}
+            style={{
+              left: pos.x,
+              top: pos.y,
+              width: sticky.w,
+              minHeight: sticky.h,
+              fontSize: sticky.fontSize,
+            }}
             data-sticky-id={sticky.id}
             onPointerDown={(e) => onPointerDown(e, sticky)}
             onPointerMove={(e) => onPointerMove(e, sticky)}
@@ -218,7 +234,7 @@ export default function StickyLayer() {
                     className={`paper-color-btn paper-${color}${
                       sticky.color === color ? ' on' : ''
                     }`}
-                    aria-label={`画用紙を${PAPER_LABELS[color]}色にする`}
+                    aria-label={`付箋を${PAPER_LABELS[color]}色にする`}
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() =>
                       useStore.getState().applyLocalOp({
@@ -229,6 +245,44 @@ export default function StickyLayer() {
                     }
                   />
                 ))}
+                <span className="sticky-controls-sep" aria-hidden />
+                <button
+                  type="button"
+                  className="paper-size-btn"
+                  aria-label="付箋を小さくする"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => resize(sticky, -STICKY_SIZE_STEP, 0)}
+                >
+                  <Minimize2 size={13} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="paper-size-btn"
+                  aria-label="付箋を大きくする"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => resize(sticky, STICKY_SIZE_STEP, 0)}
+                >
+                  <Maximize2 size={13} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="paper-font-btn paper-font-btn-sm"
+                  aria-label="文字を小さくする"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => resize(sticky, 0, -STICKY_FONT_STEP)}
+                >
+                  A
+                </button>
+                <button
+                  type="button"
+                  className="paper-font-btn paper-font-btn-lg"
+                  aria-label="文字を大きくする"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => resize(sticky, 0, STICKY_FONT_STEP)}
+                >
+                  A
+                </button>
+                <span className="sticky-controls-sep" aria-hidden />
                 <button
                   type="button"
                   className="paper-delete-btn"

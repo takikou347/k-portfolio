@@ -1,5 +1,19 @@
 import { z } from 'zod';
-import { MAX_STROKE_POINTS, NAME_MAX, NAME_MIN, STICKY_TEXT_MAX } from './limits';
+import {
+  MAX_STROKE_POINTS,
+  NAME_MAX,
+  NAME_MIN,
+  STICKY_FONT_DEFAULT,
+  STICKY_FONT_MAX,
+  STICKY_FONT_MIN,
+  STICKY_H_DEFAULT,
+  STICKY_H_MAX,
+  STICKY_H_MIN,
+  STICKY_TEXT_MAX,
+  STICKY_W_DEFAULT,
+  STICKY_W_MAX,
+  STICKY_W_MIN,
+} from './limits';
 
 /** ボード座標。異常値 (Infinity / 桁あふれ) は受け付けない */
 const COORD_LIMIT = 1_000_000;
@@ -43,11 +57,16 @@ export const strokeSchema = z.object({
 });
 export type Stroke = z.infer<typeof strokeSchema>;
 
-/** 画用紙 (付箋) の色 */
+/** 付箋の色 (素材の見た目は画用紙。UI 上の呼称は「付箋」に統一) */
 export const paperColorSchema = z.enum(['cream', 'rose', 'sky']);
 export type PaperColor = z.infer<typeof paperColorSchema>;
 
 export const stickyTextSchema = z.string().max(STICKY_TEXT_MAX);
+
+/** 付箋のサイズ・文字サイズ (px)。整数・範囲内のみ受け付ける */
+export const stickyWSchema = z.number().int().min(STICKY_W_MIN).max(STICKY_W_MAX);
+export const stickyHSchema = z.number().int().min(STICKY_H_MIN).max(STICKY_H_MAX);
+export const stickyFontSchema = z.number().int().min(STICKY_FONT_MIN).max(STICKY_FONT_MAX);
 
 export const stickySchema = z.object({
   id: idSchema,
@@ -55,6 +74,10 @@ export const stickySchema = z.object({
   y: coordSchema,
   color: paperColorSchema,
   text: stickyTextSchema,
+  // 任意フィールド。未指定の (旧) 付箋にはデフォルト値を補完する = 後方互換
+  w: stickyWSchema.default(STICKY_W_DEFAULT),
+  h: stickyHSchema.default(STICKY_H_DEFAULT),
+  fontSize: stickyFontSchema.default(STICKY_FONT_DEFAULT),
 });
 export type Sticky = z.infer<typeof stickySchema>;
 
@@ -67,6 +90,13 @@ export const opSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('moveSticky'), id: idSchema, x: coordSchema, y: coordSchema }),
   z.object({ type: z.literal('editSticky'), id: idSchema, text: stickyTextSchema }),
   z.object({ type: z.literal('recolorSticky'), id: idSchema, color: paperColorSchema }),
+  z.object({
+    type: z.literal('resizeSticky'),
+    id: idSchema,
+    w: stickyWSchema,
+    h: stickyHSchema,
+    fontSize: stickyFontSchema,
+  }),
   z.object({ type: z.literal('deleteSticky'), id: idSchema }),
 ]);
 export type Op = z.infer<typeof opSchema>;

@@ -36,6 +36,23 @@ export const MAX_STICKIES = 200;
 /** 付箋テキストの最大文字数 */
 export const STICKY_TEXT_MAX = 80;
 
+/**
+ * 付箋のサイズ・文字サイズ (px)。無料枠ではなくレイアウト保護のための範囲。
+ * w/h/fontSize はスキーマの任意フィールドで、未指定の (旧) 付箋にはデフォルト値が補完される。
+ */
+export const STICKY_W_DEFAULT = 180;
+export const STICKY_W_MIN = 120;
+export const STICKY_W_MAX = 360;
+export const STICKY_H_DEFAULT = 140;
+export const STICKY_H_MIN = 100;
+export const STICKY_H_MAX = 360;
+export const STICKY_FONT_DEFAULT = 15;
+export const STICKY_FONT_MIN = 12;
+export const STICKY_FONT_MAX = 28;
+/** サイズ・文字サイズの 1 ステップ (UI の −/＋ が動かす量) */
+export const STICKY_SIZE_STEP = 30;
+export const STICKY_FONT_STEP = 2;
+
 /** 入室名の文字数 */
 export const NAME_MIN = 2;
 export const NAME_MAX = 8;
