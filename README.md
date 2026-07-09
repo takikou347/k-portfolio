@@ -108,7 +108,7 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 
 | Secret | 取得方法 |
 |---|---|
-| `ANTHROPIC_API_KEY` | Anthropic Console。Claude Pro/Max なら `claude setup-token` で OAuth トークンを生成し、workflows を `claude_code_oauth_token` に書き換えて `CLAUDE_CODE_OAUTH_TOKEN` を登録してもよい |
+| `CLAUDE_CODE_OAUTH_TOKEN` | 手元の Claude Code で `claude setup-token` を実行して生成 (Claude Pro/Max のサブスクリプションが必要)。**定額内で消費され、従量課金は発生しない**。従量課金の API キーを使いたい場合のみ、Anthropic Console でキーを発行し、claude-*.yml の `claude_code_oauth_token` を `anthropic_api_key` に書き換えて `ANTHROPIC_API_KEY` を登録する |
 | `CLOUDFLARE_API_TOKEN` | ダッシュボード > My Profile > API Tokens、テンプレート「Edit Cloudflare Workers」。**`deploy.yml`（本番デプロイ）専用** |
 | `CLOUDFLARE_ANALYTICS_TOKEN` | **Analytics 読み取り専用**の別トークン（Permissions は Account > Account Analytics = Read のみ、Workers 編集権限は付与しない）。health / weekly レポートの LLM はこちらを参照する。デプロイ権限を持つ `CLOUDFLARE_API_TOKEN` を読み取り用途で使い回すと、プロンプトインジェクション時にデプロイ権限まで奪われるため分離する |
 | `CLOUDFLARE_ACCOUNT_ID` | Workers ページ右側の Account ID |
@@ -137,7 +137,9 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 請求は構造的に発生しない。静的アセットは無料・無制限。
 
 - **GitHub Actions**: public リポジトリなら標準ランナー無制限無料
-- **Anthropic API**: プリペイド制のため残高が尽きれば止まる。OAuth トークンなら定額内
+- **Claude (claude-*.yml)**: `CLAUDE_CODE_OAUTH_TOKEN` は Pro/Max の定額サブスクリプション内で
+  消費され、追加請求は発生しない (上限到達時はレート制限で止まるだけ)。従量課金になるのは
+  `ANTHROPIC_API_KEY` (プリペイド制) に自分で切り替えた場合のみ
 - **スケジューラーの停止**: 放置する場合は Actions タブから
   claude-auto-resolve / claude-health / claude-weekly-report を Disable すればよい
 
