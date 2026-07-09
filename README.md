@@ -34,6 +34,10 @@
 - サージ防御を実装済み: 接続数上限 100 / 受信レート制限 (op 20件/秒・cursor 15件/秒) /
   カーソルスロットル。上限値は `shared/limits.ts` に集約
 
+詳細は開発者向けドキュメントを参照: [docs/architecture.md](docs/architecture.md)
+(データフロー・DO のライフサイクル・状態管理) / [docs/protocol.md](docs/protocol.md)
+(WebSocket メッセージプロトコル仕様)。入口は [docs/README.md](docs/README.md)。
+
 ## 環境構築
 
 ### 前提
@@ -180,6 +184,7 @@ src/                    React SPA
 worker/                 Worker エントリ + Durable Object (board-do.ts) + レート制限
 shared/                 ops 型定義・zod スキーマ・reducer・limits (クライアント/DO 共用)
 tests/                  単体 (shared / src / worker) + E2E (Playwright)
+docs/                   開発者向けドキュメント (アーキテクチャ / WebSocket プロトコル)
 design/DESIGN.md        デザインシステム (ビジュアルの単一の正)
 scripts/hooks/          Claude Code hooks (guard-bash / post-edit-check / verify-stop)
 .claude/                settings.json / rules / agents / skills / workflows
