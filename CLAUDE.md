@@ -81,8 +81,8 @@
 - **merge の担当**: develop 向けの PR は、CI が green かつレビュー指摘 [must] がゼロであることを
   確認したうえで Claude が merge してよい (作成直後の PR を検証確認なしに merge しない)。
   **develop → main のリリース PR の merge は必ず人間が行う** (本番デプロイの最終ゲート)
-- **CI が落ちた AI ブランチの PR** は claude-autofix-ci.yml が自動修復する (同一ブランチ 2 回まで。
-  修復コミットには `[ci-autofix]` マーカーを付ける — 試行回数の決定論的カウントに使う)
+- **CI が落ちた AI ブランチの PR** は claude-autofix-ci.yml が自動修復する。試行は同一 PR 2 回まで —
+  workflow 自身が PR に残すマーカーコメントで決定論的にカウントし、超えたら人間へ引き継ぐ
 
 ### リリース (develop → main)
 

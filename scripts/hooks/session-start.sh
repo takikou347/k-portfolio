@@ -12,10 +12,11 @@ cd "$CLAUDE_PROJECT_DIR"
 if [ ! -d node_modules ]; then
   if command -v pnpm >/dev/null 2>&1; then
     echo "node_modules がないため pnpm install --frozen-lockfile を実行します..."
-    if pnpm install --frozen-lockfile >/dev/null 2>&1; then
+    if LOG=$(pnpm install --frozen-lockfile 2>&1); then
       echo "依存関係をインストールしました。検証 3 点セット (pnpm typecheck / lint / test) が実行可能です。"
     else
       echo "警告: pnpm install に失敗しました。作業前に手動で実行してください: pnpm install --frozen-lockfile"
+      printf '%s\n' "$LOG" | tail -n 5
     fi
   else
     echo "警告: pnpm が見つかりません。作業前にインストールしてください (corepack enable など)。"

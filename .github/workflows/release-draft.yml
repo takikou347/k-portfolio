@@ -32,7 +32,9 @@ jobs:
             exit 0
           fi
 
-          # リリースノート: main..develop の merge コミットから PR 番号とタイトルを抽出
+          # リリースノート: main..develop の merge コミットから PR 番号とタイトルを抽出。
+          # 注意: develop への merge が「Create a merge commit」方式である前提。
+          # Squash merge に運用を変えた場合は --merges にヒットしなくなるので要修正
           NOTES=$(git log origin/main..origin/develop --merges --pretty=format:'%s%x09%b' \
             | awk -F'\t' '{
                 if (match($1, /#[0-9]+/)) {
