@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "[ -d dist ] || vite build",
     "dev": "concurrently -k -n vite,wrangler \"vite\" \"wrangler dev --port 8787\"",
     "build": "vite build",
     "preview": "pnpm build && wrangler dev --port 8788",

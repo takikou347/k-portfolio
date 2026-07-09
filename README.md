@@ -57,6 +57,10 @@ pnpm dev        # → http://localhost:5173 を開く
 `pnpm dev` は Vite (5173) と `wrangler dev` (8787: Worker + DO) を並行起動し、
 Vite が `/ws` の WebSocket を 8787 へプロキシする。同期を確認するにはタブを 2 つ開けばよい。
 
+> fresh clone 直後は `dist/` が無く、`wrangler dev` の `assets.directory` 検証で起動が失敗する。
+> これを防ぐため `predev` フックが **`dist/` が無いときだけ** 初回 `vite build` を自動実行する。
+> よって `pnpm install && pnpm dev` だけで両サーバーが起動する（2 回目以降は `dist/` を再利用して速い）。
+
 本番相当 (ビルド済み SPA を Worker の static assets として配信) で確認する場合:
 
 ```bash
