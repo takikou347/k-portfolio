@@ -14,6 +14,11 @@ FILE=$(printf '%s' "$INPUT" | node -e 'let d="";process.stdin.on("data",c=>d+=c)
 cd "$CLAUDE_PROJECT_DIR"
 [ ! -f package.json ] && exit 0
 
+# pnpm が無い環境 (CI 上の読み取り専用 claude セッション。書き込み可能な workflow —
+# auto-resolve / claude / autofix — は pnpm をセットアップ済み) では検査できないため
+# スキップする (#56)。CI 側の検証は ci.yml の verify ジョブが担保している
+command -v pnpm >/dev/null 2>&1 || exit 0
+
 # フォーマットは黙って適用 (指摘ではなく自動修正)
 pnpm exec prettier --write "$FILE" --log-level silent 2>/dev/null || true
 
