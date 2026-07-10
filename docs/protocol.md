@@ -69,7 +69,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 
 ## 盤面操作 (`Op`)
 
-`type` を discriminator とする 9 種。無効な op (存在しない id、上限超過、何にも触れない
+`type` を discriminator とする 10 種。無効な op (存在しない id、上限超過、何にも触れない
 消しゴム軌跡) は無視され、ブロードキャストもされない。
 
 | type | フィールド | 挙動・制約 |
@@ -77,6 +77,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 | `addStroke` | `stroke: Stroke` | 同一 id は冪等 (無視)。2000 本 (`MAX_STROKES`) 超過で古い順に間引き |
 | `eraseStroke` | `strokeId` | ストローク単位の削除。存在しない id は無視。取り消し (Ctrl/Cmd+Z) もこの op を使う |
 | `eraseArea` | `points, r` | 部分消し (GoodNotes 風)。軌跡 `points` (1〜40 点, `MAX_ERASE_POINTS`) と半径 `r` (1〜100) のカプセル領域に触れた区間だけを除去し、残存区間を断片ストロークに分割して盤面末尾に追加する。断片 id は `fragmentId(親id, 残存区間の開始 index)` (FNV ハッシュ) で決定的に生成され、クライアント / DO で一致する。どのストロークにも触れない op は無効扱い |
+| `clearStrokes` | — | 全消し。盤面のチョークストロークをすべて消す (付箋は対象外)。ストロークが 1 本もないときは無効扱い。クライアントの取り消し候補 (`myStrokeIds`) もクリアされる |
 | `addSticky` | `sticky: Sticky` | 同一 id は冪等。200 枚 (`MAX_STICKIES`) 以上のときは無視 |
 | `moveSticky` | `id, x, y` | 存在しない id は無視 |
 | `editSticky` | `id, text` | text は 80 字まで (`STICKY_TEXT_MAX`) |

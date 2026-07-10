@@ -158,6 +158,18 @@
   background: var(--color-chalk-yellow);
 }
 
+/* ぜんぶ消す: 2 度押し確認中はマグネット赤で「全員の落書きが消える」ことを警告する */
+.tool-btn.confirm {
+  color: var(--color-chalk-white);
+  background: var(--color-magnet);
+  outline: 2px solid var(--color-magnet);
+  outline-offset: 2px;
+}
+
+.tool-btn.confirm:hover {
+  background: var(--color-magnet);
+}
+
 .tool-btn:disabled {
   opacity: 0.45;
   cursor: default;
@@ -673,6 +685,156 @@
   font-size: 14px;
 }
 
+/* ===== 黒板スイッチャー (左上) ===== */
+.board-switcher {
+  position: fixed;
+  top: 22px;
+  left: 18px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.board-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-chalk-white);
+  opacity: 0.75;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 4px;
+  max-width: 40vw;
+}
+
+.board-badge:hover {
+  opacity: 1;
+}
+
+.board-badge-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-popover {
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 210px;
+  max-width: min(300px, calc(100vw - 36px));
+}
+
+.board-new-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-chalk-white);
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.board-new-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.board-goto {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-goto input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-chalk-white);
+  background: transparent;
+  border: none;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.35);
+  padding: 6px 4px;
+}
+
+.board-goto input::placeholder {
+  font-family: var(--font-ui);
+  color: var(--color-chalk-white);
+  opacity: 0.5;
+}
+
+.board-goto button {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-chalk-white);
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 6px 12px;
+  cursor: pointer;
+  flex: none;
+}
+
+.board-goto button:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.board-goto button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.board-popover-heading {
+  font-family: var(--font-hand);
+  font-size: 13px;
+  opacity: 0.7;
+  margin: 2px 0 0;
+}
+
+.board-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.board-list a {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-chalk-white);
+  text-decoration: none;
+  padding: 8px 4px;
+  border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-list a:hover {
+  background: rgba(255, 255, 255, 0.12);
+  text-decoration: underline;
+}
+
 /* ===== 状態バナー (上部・チョーク文字) ===== */
 .banner {
   position: fixed;
@@ -845,6 +1007,11 @@
 
   .tool-label {
     display: none;
+  }
+
+  /* 中央のバナーと重ならないよう黒板名は短めに切り詰める */
+  .board-badge {
+    max-width: 30vw;
   }
 
   /* 名前入力はボトムシートにする */

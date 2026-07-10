@@ -1,6 +1,10 @@
-import { Eraser, StickyNote, Undo2 } from 'lucide-react';
+import { Eraser, StickyNote, Trash2, Undo2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { REACTION_EMOJIS, type ReactionEmoji } from '../../shared/schema';
 import { useStore, type ChalkColor } from '../store/store';
+
+/** 「ぜんぶ消す」の確認状態を自動で解除するまでの時間 (ms) */
+const CLEAR_CONFIRM_MS = 3000;
 
 const CHALKS: { color: ChalkColor; label: string }[] = [
   { color: 'white', label: '白チョーク' },
@@ -23,8 +27,36 @@ export default function Tray({ onUndo, canUndo = false, onReact }: Props) {
   const setChalkColor = useStore((s) => s.setChalkColor);
   const fullBoard = useStore((s) => s.full);
   const status = useStore((s) => s.status);
+  const hasStrokes = useStore((s) => s.board.strokes.length > 0);
   // 満席 (読み取り専用) と再接続中は操作を受け付けない
   const full = fullBoard || status !== 'open';
+
+  // 「ぜんぶ消す」は全員の落書きが消えるため、確認の 2 度押しを要求する
+  const [confirmClear, setConfirmClear] = useState(false);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disarmClear = () => {
+    if (confirmTimerRef.current !== null) {
+      clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+    setConfirmClear(false);
+  };
+  // アンマウント後に確認解除タイマーが発火しないように (依存なしで済むよう ref だけ触る)
+  useEffect(
+    () => () => {
+      if (confirmTimerRef.current !== null) clearTimeout(confirmTimerRef.current);
+    },
+    [],
+  );
+  const onClearClick = () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      confirmTimerRef.current = setTimeout(disarmClear, CLEAR_CONFIRM_MS);
+      return;
+    }
+    disarmClear();
+    useStore.getState().applyLocalOp({ type: 'clearStrokes' });
+  };
 
   return (
     <>
@@ -61,6 +93,17 @@ export default function Tray({ onUndo, canUndo = false, onReact }: Props) {
           >
             <Eraser size={16} aria-hidden />
             <span className="tool-label">黒板消し</span>
+          </button>
+          <button
+            type="button"
+            className={`tool-btn${confirmClear ? ' confirm' : ''}`}
+            aria-label={confirmClear ? 'もういちど押すとぜんぶ消えます' : 'ぜんぶ消す'}
+            disabled={full || !hasStrokes}
+            onClick={onClearClick}
+            onBlur={disarmClear}
+          >
+            <Trash2 size={16} aria-hidden />
+            <span className="tool-label">{confirmClear ? 'ほんとに?' : 'ぜんぶ消す'}</span>
           </button>
           <button
             type="button"
