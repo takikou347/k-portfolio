@@ -26,10 +26,26 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 2. **ブランチ保護 (必須 — 環境準備の一部)**。Settings > Rulesets で `main` と `develop` に設定する:
    - **Require a pull request before merging** — 直 push 禁止（auto-resolve が直 push できない）
    - **Restrict deletions** — ブランチ削除禁止（リリース PR merge 後に develop が消えるのを防ぐ）
+   - **Require status checks to pass** — `verify` と `e2e` (ci.yml のジョブ名) を required にする。
+     CI green の確認を運用ルールではなく GitHub 側で決定論的に強制する。`docs-sync` はラベル
+     (`docs-not-needed`) でスキップできる運用のため required に含めない (GitHub は skipped を
+     pass 扱いにするが、ラベル運用との干渉を避けるため対象外とする)。
+     strict モード (merge 前に PR ブランチの最新化を要求) は使わない — 頻繁な rebase を
+     強いるコストに見合わないという運用判断
+   - `develop` は **Require conversation resolution** (未解決のレビュースレッドがあると merge 不可)。
+     Claude の自動 merge フロー (CI green + [must] ゼロで merge) とも相互作用する — レビューで
+     スレッドが立った場合は解決 (resolve) するまで merge がブロックされる
    - `main` は加えて **人間の承認 1 件以上を必須 (Require approvals)** — develop → main のリリース PR
      merge の最終ゲートを人間に固定する
-   - `gh auth login` 済みなら補助スクリプトで一括作成できる:
-     `bash scripts/setup-branch-protection.sh <owner>/<repo>`（冪等。手動設定した場合は不要）
+   - **Bypass actors は空のまま**にする (誰も保護を迂回できない)
+   - `gh auth login` 済みなら補助スクリプトで一括適用できる:
+     `bash scripts/setup-branch-protection.sh <owner>/<repo>`（冪等 create-or-update。
+     既存 Ruleset があっても望ましい状態に上書きするので、設定ドリフトの復旧にも使える）
+3. **リポジトリ設定** (上記スクリプトが Ruleset とあわせて適用する):
+   - **default branch = `develop`** — PR の base 既定と schedule workflow の参照先を develop にする
+   - **merge commit のみ有効** (squash / rebase merge は無効) — Conventional Commits の履歴を保つ
+   - **head ブランチの自動削除** (`delete_branch_on_merge`) — Issue ブランチの掃除を自動化する
+     (main / develop は Ruleset の Restrict deletions で保護されるため消えない)
 
    > **なぜ必須か**: ローカルでは `scripts/hooks/guard-bash.sh` が main/develop への直 push・不正ブランチ・
    > 非 Conventional コミットを 100% 遮断する。しかし `claude-auto-resolve.yml` は `contents: write` と
