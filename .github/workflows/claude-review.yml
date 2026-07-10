@@ -40,4 +40,5 @@ jobs:
             問題がなければ「must 指摘なし」とだけコメントしてください。
           claude_args: |
             --model sonnet
-            --max-turns 15
+            --max-turns 40
+            --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
