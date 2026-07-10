@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        完了条件まで書いてもらえると、毎日 03:00 JST の自動対応バッチがそのまま実装に着手できます。
+        完了条件まで書いてもらえると、毎日 10:00 JST の自動対応バッチがそのまま実装に着手できます。
   - type: textarea
     id: what
     attributes:
