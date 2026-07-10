@@ -50,7 +50,9 @@
   `status !== 'open'` (再接続中) のとき op を受け付けない。ローカルにだけ反映されて
   サーバーに届かない「無音ロールバック」を防ぐため
 - **取り消し (Ctrl/Cmd+Z)**: 専用の undo op は存在しない。クライアントが自分の
-  ストローク id を `myStrokeIds` に記録しておき、`eraseStroke` を発行するだけ
+  ストローク id を `myStrokeIds` に記録しておき、`eraseStroke` を発行するだけ。
+  部分消し (`eraseArea`) で自分のストロークが分割されたときは、`myStrokeIds` を
+  断片 id に付け替えて追従する (分割判定は reducer と同じ `eraseStrokePath` を共用)
 
 ### エフェメラル (cursor / stroking / reaction) — 永続化されない
 
