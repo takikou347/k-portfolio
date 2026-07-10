@@ -1,3 +1,4 @@
+import { hashString } from '../../shared/hash';
 import type { ChalkColor, Point } from '../../shared/schema';
 
 /** トークン (CSS カスタムプロパティ) の値を canvas 用に解決する。hex を二重管理しない */
@@ -14,16 +15,6 @@ export function chalkCssColor(color: ChalkColor): string {
     };
   }
   return colorCache[color];
-}
-
-/** 文字列 → 32bit シード */
-export function hashString(str: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
 }
 
 /** 決定的な乱数列。再描画してもかすれの模様が変わらないよう stroke id でシードする */

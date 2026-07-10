@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
+import { strokeTouchesPath } from '../../shared/erase';
 import {
+  ERASE_BATCH_MS,
+  ERASE_RADIUS_MAX,
+  ERASE_RADIUS_MIN,
+  MAX_ERASE_POINTS,
   MAX_STROKE_POINTS,
   STICKY_FONT_DEFAULT,
   STICKY_H_DEFAULT,
@@ -9,7 +14,6 @@ import {
 import type { ChalkColor, Point } from '../../shared/schema';
 import { useStore } from '../store/store';
 import { chalkCssColor, drawStroke } from './chalk';
-import { strokeHitsPoint } from './hit-test';
 import { screenToBoard } from './view';
 
 /**
@@ -34,7 +38,11 @@ function reducedMotion(): boolean {
 export default function BoardCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const draftRef = useRef<OwnDraft | null>(null);
-  const erasingRef = useRef(false);
+  /** 消しゴムでなぞった軌跡の未送信分 (null = 消しゴム操作中でない) */
+  const eraseDraftRef = useRef<Point[] | null>(null);
+  /** 直前に送ったバッチの最終点。軌跡をつないでバッチ境界の消し漏れを防ぐ */
+  const eraseLastRef = useRef<Point | null>(null);
+  const eraseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const particlesRef = useRef<Particle[]>([]);
   const smudgesRef = useRef<Smudge[]>([]);
   const dirtyRef = useRef(true);
@@ -140,6 +148,9 @@ export default function BoardCanvas() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', markDirty);
+      // アンマウント後にバッチ送信タイマーが発火しないように
+      if (flushTimerRef.current !== null) clearTimeout(flushTimerRef.current);
+      if (eraseTimerRef.current !== null) clearTimeout(eraseTimerRef.current);
     };
   }, []);
 
@@ -198,17 +209,55 @@ export default function BoardCanvas() {
     }
   };
 
-  const eraseAt = (p: Point) => {
-    const { board, view, applyLocalOp } = useStore.getState();
-    const threshold = ERASE_RADIUS_PX / view.scale;
-    const hit = board.strokes.find((s) => strokeHitsPoint(s, p, threshold));
-    if (hit) {
-      applyLocalOp({ type: 'eraseStroke', strokeId: hit.id });
-      // 拭き取ったチョークの粉が舞う
-      spawnDust(p, view.scale, 3);
+  /** 消しゴムの半径 (ボード座標)。スキーマの受け入れ範囲に収める */
+  const eraseRadius = (scale: number) =>
+    Math.min(ERASE_RADIUS_MAX, Math.max(ERASE_RADIUS_MIN, ERASE_RADIUS_PX / scale));
+
+  /** 溜めた軌跡を 1 つの eraseArea op として送る。何も触れていなければ送らない */
+  const flushErase = () => {
+    if (eraseTimerRef.current !== null) {
+      clearTimeout(eraseTimerRef.current);
+      eraseTimerRef.current = null;
     }
+    const pending = eraseDraftRef.current;
+    if (!pending || pending.length === 0) return;
+    eraseDraftRef.current = [];
+    const last = eraseLastRef.current;
+    const path = last ? [last, ...pending].slice(-MAX_ERASE_POINTS) : pending;
+    eraseLastRef.current = path[path.length - 1];
+    const { board, view, applyLocalOp } = useStore.getState();
+    const r = eraseRadius(view.scale);
+    if (!board.strokes.some((s) => strokeTouchesPath(s, path, r))) return;
+    applyLocalOp({ type: 'eraseArea', points: path, r });
+    // 拭き取ったチョークの粉が舞う
+    spawnDust(path[path.length - 1], view.scale, 3);
+  };
+
+  const scheduleEraseFlush = () => {
+    if (eraseTimerRef.current !== null) return;
+    eraseTimerRef.current = setTimeout(flushErase, ERASE_BATCH_MS);
+  };
+
+  const cancelErase = () => {
+    if (eraseTimerRef.current !== null) {
+      clearTimeout(eraseTimerRef.current);
+      eraseTimerRef.current = null;
+    }
+    eraseDraftRef.current = null;
+    eraseLastRef.current = null;
+  };
+
+  const eraseAt = (p: Point) => {
+    const pending = eraseDraftRef.current;
+    if (!pending) return;
+    pending.push(p);
+    // 1 op に載る点数の上限に近づいたら待たずに送る
+    if (pending.length >= MAX_ERASE_POINTS - 1) flushErase();
+    else scheduleEraseFlush();
     // なぞった範囲に消しゴム幅ぶんの擦れ跡を残す (帯状に見える)
     if (!reducedMotion()) {
+      const { view } = useStore.getState();
+      const threshold = ERASE_RADIUS_PX / view.scale;
       smudgesRef.current.push({ x: p.x, y: p.y, r: threshold, life: 1.4, total: 1.4 });
       if (smudgesRef.current.length > 120) smudgesRef.current.shift();
     }
@@ -238,8 +287,10 @@ export default function BoardCanvas() {
       dirtyRef.current = true;
     } else if (store.tool === 'eraser') {
       canvasRef.current?.setPointerCapture(e.pointerId);
-      erasingRef.current = true;
+      eraseDraftRef.current = [];
+      eraseLastRef.current = null;
       eraseAt(p);
+      flushErase(); // タップした瞬間に消える即時フィードバック
     } else if (store.tool === 'sticky') {
       // mousedown のデフォルト動作 (フォーカス移動) が開いた直後のエディタを blur しないように
       e.preventDefault();
@@ -269,7 +320,7 @@ export default function BoardCanvas() {
     // 2本指ジェスチャが始まったら誤描画しないよう描きかけを破棄する
     if (store.gestureActive) {
       if (draftRef.current) cancelDraft();
-      erasingRef.current = false;
+      cancelErase();
       return;
     }
     if (!e.isPrimary) return;
@@ -285,14 +336,17 @@ export default function BoardCanvas() {
       scheduleFlush();
       if (Math.random() < 0.3) spawnDust(p, store.view.scale, 1);
       dirtyRef.current = true;
-    } else if (erasingRef.current && e.buttons > 0) {
+    } else if (eraseDraftRef.current && e.buttons > 0) {
       eraseAt(boardPoint(e));
     }
   };
 
   const onPointerEnd = () => {
     if (draftRef.current) finishStroke();
-    erasingRef.current = false;
+    if (eraseDraftRef.current) {
+      flushErase(); // 未送信の軌跡を送り切ってから終了
+      cancelErase();
+    }
   };
 
   return (
@@ -303,7 +357,10 @@ export default function BoardCanvas() {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
-      onPointerCancel={cancelDraft}
+      onPointerCancel={() => {
+        cancelDraft();
+        cancelErase();
+      }}
     />
   );
 }

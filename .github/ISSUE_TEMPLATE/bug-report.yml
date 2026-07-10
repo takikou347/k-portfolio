@@ -1,0 +1,39 @@
+name: バグ報告
+description: 動作がおかしい・壊れているところを報告する
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        完了条件まで書いてもらえると、毎日 10:00 JST の自動対応バッチがそのまま実装に着手できます。
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が起きたか
+      description: 実際の挙動と、期待していた挙動
+      placeholder: 黒板消しで少し触れただけなのに、線全体が消えてしまう
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. ボードを開いてチョークで長い線を描く
+        2. 黒板消しに持ち替えて線の一部をなぞる
+        3. 線全体が消える
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      description: どうなったら「直った」と言えるか。自動対応バッチはここを受け入れ条件として使います
+      placeholder: なぞった部分だけが消え、残りの線は盤面に残る
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 環境 (任意)
+      placeholder: iPhone Safari / PC Chrome など

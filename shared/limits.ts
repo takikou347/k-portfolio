@@ -30,6 +30,16 @@ export const MAX_STROKES = 2000;
 /** 1 ストロークの最大点数 (スキーマで拒否する) */
 export const MAX_STROKE_POINTS = 600;
 
+/** eraseArea 1 op に載せられる消しゴム軌跡の最大点数 */
+export const MAX_ERASE_POINTS = 40;
+
+/** eraseArea の半径 (ボード座標 px) の受け入れ範囲。巨大な半径での全消し悪用を防ぐ */
+export const ERASE_RADIUS_MIN = 1;
+export const ERASE_RADIUS_MAX = 100;
+
+/** 消しゴム軌跡のバッチ送信間隔 (ms)。op レート上限 (20 件/秒) を超えない値にする */
+export const ERASE_BATCH_MS = 60;
+
 /** 1 ボードの付箋上限。超過分の addSticky は無視する */
 export const MAX_STICKIES = 200;
 

@@ -15,6 +15,13 @@ cd "$CLAUDE_PROJECT_DIR"
 # プロジェクト未初期化 (scaffold 前) の間はゲートを開けておく
 [ ! -f package.json ] && exit 0
 
+# pnpm が無い環境 (CI 上の読み取り専用 claude セッション。書き込み可能な workflow —
+# auto-resolve / claude / autofix — は pnpm をセットアップ済みなのでゲートは効き続ける)
+# ではスキップする。そこで 3 点セットは実行できず、失敗が続くとエージェントの最終出力が
+# 「ゲートを通せない」という釈明にすり替わる (#56)。CI の品質ゲートは ci.yml の
+# verify / e2e ジョブが決定論的に担保している
+command -v pnpm >/dev/null 2>&1 || exit 0
+
 FAILED=""
 
 TC=$(pnpm typecheck 2>&1) || FAILED="$FAILED

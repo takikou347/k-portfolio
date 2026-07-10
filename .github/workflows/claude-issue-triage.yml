@@ -20,25 +20,25 @@ jobs:
       - name: Check secrets
         id: gate
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (README「デプロイと Secrets」参照)"
+            echo "::notice::CLAUDE_CODE_OAUTH_TOKEN 未設定のためスキップ (docs/operations.md 参照)"
           fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'
       - uses: anthropics/claude-code-action@v1
         if: steps.gate.outputs.skip != 'true'
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             新しく起票された Issue #${{ github.event.issue.number }} をトリアージしてください。
             1. 内容を読み、リポジトリのコードを必要な範囲で調査する
             2. ラベルを付与する: bug / enhancement / question のいずれか + 影響度 (P1/P2/P3)
             3. コメントを 1 件投稿する: 原因の初期仮説 (bug の場合)、対応方針の提案、
                不足している情報があれば具体的な質問
-            4. 末尾に「この Issue は毎日 03:00 JST の自動対応バッチが処理します。
+            4. 末尾に「この Issue は毎日 10:00 JST の自動対応バッチが処理します。
                対象外にしたい場合は needs-info ラベルを付けてください」と案内する
             コードの変更・PR 作成はこのワークフローでは行わない。
           claude_args: |

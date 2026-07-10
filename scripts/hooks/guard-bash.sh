@@ -58,7 +58,8 @@ if printf '%s' "$CMD" | grep -qE '(^|[[:space:];&|(])git[[:space:]]+push([[:spac
 fi
 
 # 新規ブランチ名: <type>/issue-<番号>-<説明> / auto/issue-<番号> / claude/* / develop のみ許可
-NEW_BRANCH=$(printf '%s' "$CMD" | grep -oE '(checkout[[:space:]]+-b|switch[[:space:]]+-c)[[:space:]]+[^[:space:]]+' | head -n1 | awk '{print $NF}' || true)
+# (-B / -C の強制作成でもすり抜けないように大文字も検査する)
+NEW_BRANCH=$(printf '%s' "$CMD" | grep -oE '(checkout[[:space:]]+-[bB]|switch[[:space:]]+-[cC])[[:space:]]+[^[:space:]]+' | head -n1 | awk '{print $NF}' || true)
 if [ -n "$NEW_BRANCH" ]; then
   if ! printf '%s' "$NEW_BRANCH" | grep -qE '^((feat|fix|docs|style|refactor|perf|test|chore|ci)/issue-[0-9]+(-[A-Za-z0-9._-]+)?|auto/issue-[0-9]+|claude/[^[:space:]]+|develop)$'; then
     echo "BLOCKED: ブランチ名がルール違反です: $NEW_BRANCH" >&2
@@ -69,7 +70,7 @@ if [ -n "$NEW_BRANCH" ]; then
 fi
 
 # 作業ブランチの起点は develop (main からの分岐を禁止)
-NEW_BASE=$(printf '%s' "$CMD" | grep -oE '(checkout[[:space:]]+-b|switch[[:space:]]+-c)[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:];&|]+' | head -n1 | awk '{print $NF}' || true)
+NEW_BASE=$(printf '%s' "$CMD" | grep -oE '(checkout[[:space:]]+-[bB]|switch[[:space:]]+-[cC])[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:];&|]+' | head -n1 | awk '{print $NF}' || true)
 if [ -n "$NEW_BASE" ] && printf '%s' "$NEW_BASE" | grep -qE '^(origin/)?main$'; then
   echo "BLOCKED: 作業ブランチは main ではなく develop から切ってください。" >&2
   echo "例: git fetch origin develop && git switch -c feat/issue-12-reaction-emoji origin/develop" >&2

@@ -22,19 +22,19 @@ jobs:
       - name: Check secrets
         id: gate
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ] || [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Secrets 未設定のためスキップ (README「デプロイと Secrets」参照)"
+            echo "::notice::Secrets 未設定のためスキップ (docs/operations.md 参照)"
           fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'
       - uses: anthropics/claude-code-action@v1
         if: steps.gate.outputs.skip != 'true'
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             あなたはこのサービス (Cloudflare Workers 上の「こくばん」) の運用担当です。
             日次ヘルスチェックを実施してください。

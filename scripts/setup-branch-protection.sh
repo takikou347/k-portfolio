@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# main / develop のブランチ保護 (Ruleset) を gh api で一括作成する補助スクリプト。
-# README「デプロイと Secrets > ブランチ保護 (必須)」の手順を再現性のある形にしたもの。
+# main / develop のブランチ保護 (Ruleset) と関連リポジトリ設定を gh api で一括適用する補助スクリプト。
+# docs/operations.md「あわせて行うこと > ブランチ保護 (必須)」の手順を再現性のある形にしたもの。
 #
 # 前提: gh CLI が認証済み (gh auth login) で、対象リポジトリへの admin 権限があること。
 # 使い方: bash scripts/setup-branch-protection.sh <owner>/<repo>
 #
-# 冪等性: 同名 Ruleset が既にあれば作成をスキップする (重複作成しない)。
+# 冪等性: 同名 Ruleset が既にあれば PUT で望ましい状態に上書きし、なければ POST で作成する
+# (create-or-update)。リポジトリ設定の PATCH も同値なら変化しないため、何度実行しても安全。
 set -euo pipefail
 
 REPO="${1:-}"
@@ -18,24 +19,25 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-existing_rulesets() {
-  gh api "repos/$REPO/rulesets" --jq '.[].name' 2>/dev/null || true
+ruleset_id_by_name() {
+  # --paginate: Ruleset が複数ページあっても検出漏れ (= 重複作成) を防ぐ。
+  # head -n1: 過去の手動作成などで同名 Ruleset が重複していても id を 1 件に絞る
+  gh api --paginate "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$1\") | .id" 2>/dev/null | head -n1 || true
 }
 
-# $1: Ruleset 名, $2: 対象ブランチ (main/develop), $3: 必要な承認数
-create_ruleset() {
-  local name="$1" branch="$2" approvals="$3"
-  if existing_rulesets | grep -qx "$name"; then
-    echo "スキップ: Ruleset '$name' は既に存在します"
-    return 0
-  fi
-  echo "作成: Ruleset '$name' (ブランチ $branch / 承認 $approvals 件 / 直 push・削除禁止)"
-  gh api --method POST "repos/$REPO/rulesets" \
-    --input - >/dev/null <<JSON
+# $1: Ruleset 名, $2: 対象ブランチ (main/develop), $3: 必要な承認数,
+# $4: conversation resolution を必須にするか (true/false)
+apply_ruleset() {
+  local name="$1" branch="$2" approvals="$3" thread_resolution="$4"
+  local payload id
+  # required status checks の context 名は ci.yml のジョブ名 (verify / e2e) と一致させること。
+  # docs-sync はラベル (docs-not-needed) でスキップできる運用のため required に含めない。
+  payload=$(cat <<JSON
 {
   "name": "$name",
   "target": "branch",
   "enforcement": "active",
+  "bypass_actors": [],
   "conditions": {
     "ref_name": { "include": ["refs/heads/$branch"], "exclude": [] }
   },
@@ -49,17 +51,77 @@ create_ruleset() {
         "dismiss_stale_reviews_on_push": false,
         "require_code_owner_review": false,
         "require_last_push_approval": false,
-        "required_review_thread_resolution": false
+        "required_review_thread_resolution": $thread_resolution
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "verify" },
+          { "context": "e2e" }
+        ]
       }
     }
   ]
 }
 JSON
+)
+  id="$(ruleset_id_by_name "$name")"
+  if [ -n "$id" ]; then
+    echo "更新: Ruleset '$name' (id=$id) を望ましい状態に上書き"
+    printf '%s' "$payload" | gh api --method PUT "repos/$REPO/rulesets/$id" --input - >/dev/null
+  else
+    echo "作成: Ruleset '$name' (ブランチ $branch / 承認 $approvals 件 / status checks: verify, e2e)"
+    printf '%s' "$payload" | gh api --method POST "repos/$REPO/rulesets" --input - >/dev/null
+  fi
 }
 
-# develop: PR 必須・直 push/削除禁止だが承認 0 件 (CI green + [must] ゼロなら Claude が merge)
-create_ruleset "protect-develop" "develop" 0
-# main: PR 必須・直 push/削除禁止に加え、人間の承認 1 件を必須 (リリースの最終ゲート)
-create_ruleset "protect-main" "main" 1
+# develop: PR 必須・直 push/削除禁止・CI (verify/e2e) green 必須・会話解決必須。
+#          承認 0 件 (CI green + [must] ゼロなら Claude が merge できる)
+apply_ruleset "protect-develop" "develop" 0 true
+# main: PR 必須・直 push/削除禁止・CI green 必須。承認は要求しない —
+#   ソロ運用では PR 作成者 = オーナー本人となり、GitHub は自己承認を許さないため
+#   「承認 1 件必須」は誰も満たせず merge が構造的に不可能になる (#59)。
+#   本番の人間ゲートは下の production 環境 (デプロイ承認) が決定論的に担う
+apply_ruleset "protect-main" "main" 0 false
 
-echo "完了: main / develop のブランチ保護を設定しました。"
+# リポジトリ設定: default branch = develop / merge commit のみ / head ブランチ自動削除
+echo "適用: リポジトリ設定 (default_branch=develop, merge commit のみ, head ブランチ自動削除)"
+gh api --method PATCH "repos/$REPO" \
+  -f default_branch=develop \
+  -F allow_squash_merge=false \
+  -F allow_rebase_merge=false \
+  -F allow_merge_commit=true \
+  -F delete_branch_on_merge=true >/dev/null
+
+# production 環境: deploy.yml のデプロイジョブはこの環境に紐づき、required reviewers
+# (リポジトリオーナー) が承認するまで開始されない = 本番デプロイの決定論的な最終ゲート。
+# PUT は冪等 (存在すれば更新、なければ作成)
+# 個人アカウント所有のリポジトリ前提 (owner を User として reviewer に設定する)。
+# Organization 所有で運用する場合は reviewers の type を Team 等に読み替えること
+OWNER="${REPO%%/*}"
+OWNER_ID="$(gh api "users/$OWNER" --jq .id)"
+echo "適用: production 環境 (デプロイ承認者 = $OWNER, デプロイ元 = main のみ)"
+gh api --method PUT "repos/$REPO/environments/production" \
+  --input - >/dev/null <<JSON
+{
+  "reviewers": [
+    { "type": "User", "id": $OWNER_ID }
+  ],
+  "prevent_self_review": false,
+  "deployment_branch_policy": {
+    "protected_branches": false,
+    "custom_branch_policies": true
+  }
+}
+JSON
+# デプロイ元ブランチを main に限定する (多層防御。既に登録済みならスキップ)
+if ! gh api "repos/$REPO/environments/production/deployment-branch-policies" \
+    --jq '.branch_policies[].name' 2>/dev/null | grep -qx "main"; then
+  gh api --method POST "repos/$REPO/environments/production/deployment-branch-policies" \
+    -f name=main >/dev/null
+fi
+
+echo "完了: main / develop のブランチ保護・リポジトリ設定・production 環境を適用しました。"

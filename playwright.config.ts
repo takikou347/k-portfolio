@@ -1,4 +1,12 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+
+// クラウドセッション等のプリインストール Chromium。ピン留めバージョンのブラウザが
+// 無い環境でも 'playwright install' なしで E2E を実行できるようフォールバックする
+const PREINSTALLED_CHROMIUM = '/opt/pw-browsers/chromium';
+const chromiumExecutable =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ??
+  (existsSync(PREINSTALLED_CHROMIUM) ? PREINSTALLED_CHROMIUM : undefined);
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -9,10 +17,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:8788',
     trace: 'retain-on-failure',
-    // サンドボックス等でプリインストール chromium を使う場合の逃げ道
-    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
-      ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } }
-      : {}),
+    // 環境変数 > プリインストール chromium > Playwright 管理ブラウザ の順で解決する
+    ...(chromiumExecutable ? { launchOptions: { executablePath: chromiumExecutable } } : {}),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
