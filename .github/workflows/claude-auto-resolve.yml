@@ -32,6 +32,20 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         with:
           fetch-depth: 0
+      # 書き込み可能セッションでは pnpm を必ず用意する — Stop hook の品質ゲート
+      # (verify-stop.sh) は pnpm が無い環境をスキップするため、ここで入れておかないと
+      # 検証3点セットが一度も走らないまま PR を作れてしまう (#56)
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.skip != 'true'
       - uses: anthropics/claude-code-action@v1
         if: steps.gate.outputs.skip != 'true'
         with:
