@@ -50,7 +50,9 @@
   `status !== 'open'` (再接続中) のとき op を受け付けない。ローカルにだけ反映されて
   サーバーに届かない「無音ロールバック」を防ぐため
 - **取り消し (Ctrl/Cmd+Z)**: 専用の undo op は存在しない。クライアントが自分の
-  ストローク id を `myStrokeIds` に記録しておき、`eraseStroke` を発行するだけ
+  ストローク id を `myStrokeIds` に記録しておき、`eraseStroke` を発行するだけ。
+  部分消し (`eraseArea`) で自分のストロークが分割されたときは、`myStrokeIds` を
+  断片 id に付け替えて追従する (分割判定は reducer と同じ `eraseStrokePath` を共用)
 
 ### エフェメラル (cursor / stroking / reaction) — 永続化されない
 
@@ -112,6 +114,9 @@ CREATE TABLE IF NOT EXISTS stickies (
 
 - ストロークが 2000 本 (`MAX_STROKES`) を超えたら `seq` の古い順に DELETE
   (reducer の間引き規則と同一)
+- 部分消し (`eraseArea`) は reducer 適用前後の id 集合の差分を取り、消えた親ストロークを
+  DELETE・生まれた断片を INSERT で差分反映する。断片 id は決定的 (`fragmentId`) なので
+  クライアント側の楽観適用結果と一致する
 - 付箋の読み出しは `stickySchema.safeParse` を通す — `w` / `h` / `fontSize` を持たない
   旧データにデフォルト値を補完する後方互換のため。壊れた行は黙って捨てる
 

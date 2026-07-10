@@ -31,14 +31,49 @@ jobs:
         with:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
+        id: review
         if: steps.gate.outputs.skip != 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             この PR をレビューしてください。.claude/agents/code-reviewer.md の観点と出力形式に従い、
             .claude/rules/ の規約違反・セキュリティ・型・テスト欠落を [must] / [nits] で指摘してください。
-            問題がなければ「must 指摘なし」とだけコメントしてください。
+            問題がなければ「must 指摘なし」とだけ返してください。
+            レビュー結果は PR にコメント投稿せず、最終応答のテキストとして返すこと
+            (投稿は後続のワークフローステップが決定論的に行う)。
           claude_args: |
             --model sonnet
             --max-turns 40
             --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+      # レビュー結果の投稿はエージェント任せにしない: ハーネス変更 PR (untrusted head 扱い) では
+      # コメント投稿系ツールが拒否されて結果が PR に残らないため (#48)、実行ログの最終テキストを
+      # このステップが常に投稿する
+      - name: レビュー結果を PR にコメント投稿
+        if: steps.gate.outputs.skip != 'true' && !cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXEC_FILE: ${{ steps.review.outputs.execution_file }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          FILE="${EXEC_FILE:-$RUNNER_TEMP/claude-execution-output.json}"
+          if [ ! -f "$FILE" ]; then
+            # warning にして「投稿が静かに無効化されたまま」に気付けるようにする
+            echo "::warning::実行ログが見つからないためレビュー結果を投稿できません ($FILE)"
+            exit 0
+          fi
+          BODY="$(jq -r '[.[] | select(.type == "result")][0].result // empty' "$FILE")"
+          SUBTYPE="$(jq -r '[.[] | select(.type == "result")][0].subtype // empty' "$FILE")"
+          if [ -z "$BODY" ]; then
+            echo "::warning::レビュー本文が空のため投稿をスキップ (subtype: ${SUBTYPE:-不明})"
+            exit 0
+          fi
+          if [ "$SUBTYPE" != "success" ]; then
+            # 実行が異常終了したときの途中結果を、正常なレビューと誤読させない
+            BODY="$(printf '> [!WARNING]\n> レビュー実行が正常終了していません (subtype: %s)。以下は途中結果の可能性があります。\n\n%s' "${SUBTYPE:-不明}" "$BODY")"
+          fi
+          # GitHub のコメント本文上限 (65536 字) を超えると 422 で失敗するため切り詰める
+          BODY="${BODY:0:60000}"
+          printf '## 自動レビュー (claude-review)\n\n%s\n' "$BODY" \
+            | jq -Rs '{body: .}' \
+            | gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --input - >/dev/null
+          echo "レビュー結果を PR #${PR_NUMBER} に投稿しました"

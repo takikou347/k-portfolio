@@ -1,7 +1,15 @@
 import { create } from 'zustand';
+import { eraseStrokePath } from '../../shared/erase';
 import { MAX_STROKE_POINTS, MAX_STROKES, REACTIONS_PER_SECOND } from '../../shared/limits';
 import { applyOp, emptyBoardState, type BoardState } from '../../shared/ops';
-import type { ChalkColor, Op, ReactionEmoji, ServerMessage, User } from '../../shared/schema';
+import type {
+  ChalkColor,
+  Op,
+  ReactionEmoji,
+  ServerMessage,
+  Stroke,
+  User,
+} from '../../shared/schema';
 import { zoomAt, type Point, type View } from '../board/view';
 import type { BoardConnection, ConnectionStatus } from '../ws/connection';
 
@@ -19,6 +27,34 @@ export type StrokeDraft = {
 
 /** 更新が途絶えた draft を破棄するまでの時間 (ms) */
 const DRAFT_TTL_MS = 6000;
+
+/**
+ * eraseArea で自分のストロークが分割・消滅したとき、myStrokeIds を断片 id に追従させる。
+ * 分割判定は reducer と同じ shared の eraseStrokePath を使う (二重実装しない) ため、
+ * 断片 id は盤面に実際に追加されるものと必ず一致する。
+ * ついでに盤面に存在しない id もここで掃除する (溜まり続けの防止)。
+ *
+ * @param strokes 適用「前」の盤面ストローク (適用後では消えた親を引けない)
+ */
+function remapMyStrokeIds(
+  myStrokeIds: string[],
+  strokes: Stroke[],
+  op: Extract<Op, { type: 'eraseArea' }>,
+): string[] {
+  const next: string[] = [];
+  for (const id of myStrokeIds) {
+    const stroke = strokes.find((s) => s.id === id);
+    if (!stroke) continue; // 盤面にもう無い id は取り消し候補から外す
+    const fragments = eraseStrokePath(stroke, op.points, op.r);
+    if (fragments === null) {
+      next.push(id); // 消しゴムに触れていない
+    } else {
+      // 親は盤面から消える。残った断片 (全消しなら 0 本) を代わりに取り消し候補へ
+      for (const fragment of fragments) next.push(fragment.id);
+    }
+  }
+  return next.slice(-MAX_STROKES);
+}
 
 type Store = {
   view: View;
@@ -167,6 +203,9 @@ export const useStore = create<Store>()((set, get) => ({
             // 他人に消された自分のストロークは取り消し候補から外す
             const strokeId = msg.op.strokeId;
             myStrokeIds = myStrokeIds.filter((id) => id !== strokeId);
+          } else if (msg.op.type === 'eraseArea') {
+            // 他人の部分消しで自分のストロークが分割されても断片を取り消せるようにする
+            myStrokeIds = remapMyStrokeIds(s.myStrokeIds, s.board.strokes, msg.op);
           }
           return { board, drafts, myStrokeIds };
         });
@@ -190,6 +229,9 @@ export const useStore = create<Store>()((set, get) => ({
       } else if (op.type === 'eraseStroke') {
         const strokeId = op.strokeId;
         myStrokeIds = myStrokeIds.filter((id) => id !== strokeId);
+      } else if (op.type === 'eraseArea') {
+        // 自分の部分消しに自分のストロークが巻き込まれても断片を取り消せるようにする
+        myStrokeIds = remapMyStrokeIds(s.myStrokeIds, s.board.strokes, op);
       }
       return { board, myStrokeIds };
     });
