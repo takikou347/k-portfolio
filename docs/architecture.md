@@ -112,6 +112,9 @@ CREATE TABLE IF NOT EXISTS stickies (
 
 - ストロークが 2000 本 (`MAX_STROKES`) を超えたら `seq` の古い順に DELETE
   (reducer の間引き規則と同一)
+- 部分消し (`eraseArea`) は reducer 適用前後の id 集合の差分を取り、消えた親ストロークを
+  DELETE・生まれた断片を INSERT で差分反映する。断片 id は決定的 (`fragmentId`) なので
+  クライアント側の楽観適用結果と一致する
 - 付箋の読み出しは `stickySchema.safeParse` を通す — `w` / `h` / `fontSize` を持たない
   旧データにデフォルト値を補完する後方互換のため。壊れた行は黙って捨てる
 
