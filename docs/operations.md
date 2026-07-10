@@ -14,7 +14,7 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 リポジトリの Settings > Secrets and variables > Actions に登録するもの:
 
 | Secret | 取得方法 |
-|---|---|
+| --- | --- |
 | `CLAUDE_CODE_OAUTH_TOKEN` | 手元の Claude Code で `claude setup-token` を実行して生成 (Claude Pro/Max のサブスクリプションが必要)。**定額内で消費され、従量課金は発生しない**。従量課金の API キーを使いたい場合のみ、Anthropic Console でキーを発行し、claude-*.yml の `claude_code_oauth_token` を `anthropic_api_key` に書き換えて `ANTHROPIC_API_KEY` を登録する |
 | `CLOUDFLARE_API_TOKEN` | ダッシュボード > My Profile > API Tokens、テンプレート「Edit Cloudflare Workers」。**`deploy.yml`（本番デプロイ）専用** |
 | `CLOUDFLARE_ANALYTICS_TOKEN` | **Analytics 読み取り専用**の別トークン（Permissions は Account > Account Analytics = Read のみ、Workers 編集権限は付与しない）。health / weekly レポートの LLM はこちらを参照する。デプロイ権限を持つ `CLOUDFLARE_API_TOKEN` を読み取り用途で使い回すと、プロンプトインジェクション時にデプロイ権限まで奪われるため分離する |
