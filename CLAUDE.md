@@ -46,13 +46,13 @@
 - サブエージェントのモデルは役割で使い分ける (設定済み): レビュー = code-reviewer (sonnet)、
   テスト全件実行・集計 = test-runner (haiku)。新しいエージェントを足すときも同じ基準で選ぶ
 - CI 側のモデルも用途別に固定済み: triage / health / 週次レポート = haiku、
-  PR レビュー / 夜間実装 / @claude 応答 / CI 自動修復 = sonnet。ワークフローの `--model` を外さない。
+  PR レビュー / 日次バッチ実装 / @claude 応答 / CI 自動修復 = sonnet。ワークフローの `--model` を外さない。
   リリース PR 下書き (release-draft.yml) は LLM 不使用の決定論的スクリプト
 - ダイナミックワークフローは明示的なオプトイン (「ワークフローで」/ ultracode) のときだけ使う。
   多数のエージェントを生みトークン消費が大きい — まず小さいスコープで試してから広げる
 - 保存済みワークフロー `/exhaustive-review` — スライス完了時・push 前の多角レビュー
   (5 視点で並列レビュー → 指摘を敵対的検証)。機械的なステージは低 effort / 小モデルに寄せる
-- 長時間の自律実行 (goal / 夜間バッチ) でも Stop hook の品質ゲートと Git 運用ルールは常に適用される。
+- 長時間の自律実行 (goal / 日次バッチ) でも Stop hook の品質ゲートと Git 運用ルールは常に適用される。
   着手前に完了条件を明示し、検証はワークフローの verify ステージか code-reviewer に委ねる
 
 ## Git 運用 (Issue 駆動 + develop フロー)
@@ -73,7 +73,7 @@
 - **Issue がない修正・機能追加は、先に Issue を作成してから着手する** (背景と完了条件を書く)。
   タイポ修正などの些末な変更でも省略しない — Issue が作業の記録になる
 - ブランチは**最新の develop から**切り、`<type>/issue-<番号>-<説明>` 形式にする
-  (例: `feat/issue-12-reaction-emoji`)。夜間バッチは `auto/issue-<番号>` を使う。**PR の base は develop**
+  (例: `feat/issue-12-reaction-emoji`)。日次バッチ (auto-resolve) は `auto/issue-<番号>` を使う。**PR の base は develop**
 - コミットメッセージは Conventional Commits 形式: `feat: / fix: / docs: / style: / refactor: /
   perf: / test: / chore: / ci:` + 末尾に `(#<Issue番号>)` (例: `feat: リアクションに 🎉 を追加 (#12)`)。
   プレフィックスは hooks (guard-bash.sh) が決定論的に検査する

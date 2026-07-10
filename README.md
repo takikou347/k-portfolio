@@ -151,7 +151,7 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 | `deploy.yml` | main への push | 本番デプロイ |
 | `claude-review.yml` | PR 作成 | Claude による自動コードレビュー |
 | `claude-issue-triage.yml` | Issue 起票 | 即時トリアージ (ラベル + 初期仮説コメント) |
-| `claude-auto-resolve.yml` | 毎日 03:00 JST | 未対応 Issue を自動処理 (修正 PR / 回答 / 計画) |
+| `claude-auto-resolve.yml` | 毎日 10:00 JST | 未対応 Issue を自動処理 (修正 PR / 回答 / 計画) |
 | `claude-autofix-ci.yml` | CI 失敗 (AI ブランチの PR) | 失敗ログを診断して修正 push。同一ブランチ 2 回まで、超えたら人間へ引き継ぎ |
 | `claude.yml` | @claude メンション | Issue / PR コメントからの依頼に応答 (調査・回答・実装) |
 | `claude-health.yml` | 毎朝 09:00 JST | Cloudflare の稼働・無料枠使用率を点検し Issue に報告 |

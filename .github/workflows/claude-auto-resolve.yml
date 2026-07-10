@@ -2,7 +2,7 @@ name: Claude Auto Resolve Issues
 
 on:
   schedule:
-    - cron: "0 18 * * *"   # 毎日 03:00 JST に未対応 Issue を自動処理
+    - cron: "0 1 * * *"    # 毎日 10:00 JST に未対応 Issue を自動処理
   workflow_dispatch:        # 発表デモ用に手動起動も可
 
 concurrency:
@@ -37,7 +37,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            あなたはこのリポジトリの夜間バッチ担当です。未対応の Issue を自動処理してください。
+            あなたはこのリポジトリの日次バッチ (毎日 10:00 JST) 担当です。未対応の Issue を自動処理してください。
 
             ## 前回バッチの PR の merge
             0. 過去バッチが作成したオープン PR (base: develop、ブランチ auto/issue-*) を確認し、
