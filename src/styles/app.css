@@ -158,6 +158,18 @@
   background: var(--color-chalk-yellow);
 }
 
+/* ぜんぶ消す: 2 度押し確認中はマグネット赤で「全員の落書きが消える」ことを警告する */
+.tool-btn.confirm {
+  color: var(--color-chalk-white);
+  background: var(--color-magnet);
+  outline: 2px solid var(--color-magnet);
+  outline-offset: 2px;
+}
+
+.tool-btn.confirm:hover {
+  background: var(--color-magnet);
+}
+
 .tool-btn:disabled {
   opacity: 0.45;
   cursor: default;

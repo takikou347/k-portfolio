@@ -219,6 +219,10 @@ export class BoardDO extends DurableObject<Env> {
         }
         break;
       }
+      case 'clearStrokes': {
+        sql.exec('DELETE FROM strokes');
+        break;
+      }
       case 'addSticky': {
         sql.exec(
           'INSERT OR IGNORE INTO stickies (id, data) VALUES (?, ?)',

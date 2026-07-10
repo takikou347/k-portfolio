@@ -115,6 +115,22 @@ describe('applyOp: eraseArea (部分消し)', () => {
   });
 });
 
+describe('applyOp: clearStrokes (ぜんぶ消す)', () => {
+  it('全ストロークが消え、付箋は残る', () => {
+    let state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: stroke('s1') });
+    state = applyOp(state, { type: 'addStroke', stroke: stroke('s2') });
+    state = applyOp(state, { type: 'addSticky', sticky: sticky('n1') });
+    const next = applyOp(state, { type: 'clearStrokes' });
+    expect(next.strokes).toHaveLength(0);
+    expect(next.stickies).toHaveLength(1);
+  });
+
+  it('ストロークが 1 本もないときは無視され、state は同一参照のまま', () => {
+    const state = applyOp(emptyBoardState(), { type: 'addSticky', sticky: sticky('n1') });
+    expect(applyOp(state, { type: 'clearStrokes' })).toBe(state);
+  });
+});
+
 describe('applyOp: 付箋 (addSticky / moveSticky / editSticky / recolorSticky / deleteSticky)', () => {
   it('addSticky で付箋が追加される', () => {
     const next = applyOp(emptyBoardState(), { type: 'addSticky', sticky: sticky('n1') });

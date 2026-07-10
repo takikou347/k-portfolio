@@ -257,6 +257,47 @@ describe('BoardDO: presence とライブカーソル', () => {
     ]);
   });
 
+  it('clearStrokes で全ストロークが消えて SQLite にも反映され、付箋は残る', async () => {
+    const a = await connect('clear-board', 'はなこ');
+    await a.next(); // snapshot
+    const b = await connect('clear-board', 'たろう', 'blue');
+    await b.next(); // snapshot
+    await a.next(); // join presence
+
+    const stroke: Stroke = { id: 's1', color: 'white', points: [{ x: 0, y: 0 }] };
+    const sticky = { id: 'note-1', x: 0, y: 0, color: 'cream', text: 'のこる' };
+    a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addStroke', stroke } }));
+    await b.next();
+    a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addSticky', sticky } }));
+    await b.next();
+
+    // B の全消しが A にブロードキャストされる
+    b.ws.send(JSON.stringify({ type: 'op', op: { type: 'clearStrokes' } }));
+    expect(await a.next()).toEqual({ type: 'op', op: { type: 'clearStrokes' } });
+
+    // 後から入る C の snapshot: ストロークは空、付箋は残る (永続化の反映)
+    const c = await connect('clear-board', 'じろう', 'yellow');
+    const snapC = await c.next();
+    expect(snapC.type).toBe('snapshot');
+    if (snapC.type !== 'snapshot') return;
+    expect(snapC.state.strokes).toEqual([]);
+    expect(snapC.state.stickies).toMatchObject([{ id: 'note-1', text: 'のこる' }]);
+    await a.next(); // C の join presence を消費
+    await b.next();
+
+    // SQLite からもストロークが消えている
+    const stub = env.BOARD.getByName('clear-board');
+    await runInDurableObject(stub, async (_instance: BoardDO, state) => {
+      const count = Number(state.storage.sql.exec('SELECT COUNT(*) AS c FROM strokes').one().c);
+      expect(count).toBe(0);
+    });
+
+    // ストロークが 1 本もない盤面への clearStrokes は無効 op としてブロードキャストされない
+    b.ws.send(JSON.stringify({ type: 'op', op: { type: 'clearStrokes' } }));
+    b.ws.send(JSON.stringify({ type: 'cursor', x: 4, y: 4 }));
+    expect(await a.next()).toMatchObject({ type: 'cursor', x: 4, y: 4 });
+  });
+
   it('無効な op (存在しない id への erase) はブロードキャストされない', async () => {
     const a = await connect('noop-board', 'はなこ');
     await a.next(); // snapshot

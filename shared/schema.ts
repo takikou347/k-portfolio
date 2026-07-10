@@ -95,6 +95,8 @@ export const opSchema = z.discriminatedUnion('type', [
     points: z.array(pointSchema).min(1).max(MAX_ERASE_POINTS),
     r: z.number().finite().min(ERASE_RADIUS_MIN).max(ERASE_RADIUS_MAX),
   }),
+  // 全消し: 盤面のチョークストロークをすべて消す (付箋は対象外)
+  z.object({ type: z.literal('clearStrokes') }),
   z.object({ type: z.literal('addSticky'), sticky: stickySchema }),
   z.object({ type: z.literal('moveSticky'), id: idSchema, x: coordSchema, y: coordSchema }),
   z.object({ type: z.literal('editSticky'), id: idSchema, text: stickyTextSchema }),

@@ -59,6 +59,15 @@ describe('strokeSchema / op メッセージ', () => {
     expect(clientMessageSchema.safeParse(msg).success).toBe(true);
   });
 
+  it('clearStrokes op を受け入れ、type の誤記は拒否する', () => {
+    expect(
+      clientMessageSchema.safeParse({ type: 'op', op: { type: 'clearStrokes' } }).success,
+    ).toBe(true);
+    expect(clientMessageSchema.safeParse({ type: 'op', op: { type: 'clearStroke' } }).success).toBe(
+      false,
+    );
+  });
+
   it('不正な色・点数 0・点数超過のストロークは拒否する', () => {
     const base = { type: 'op', op: { type: 'addStroke', stroke: validStroke } };
     expect(
