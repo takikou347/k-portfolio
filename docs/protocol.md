@@ -69,13 +69,14 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 
 ## 盤面操作 (`Op`)
 
-`type` を discriminator とする 8 種。無効な op (存在しない id、上限超過) は無視され、
-ブロードキャストもされない。
+`type` を discriminator とする 9 種。無効な op (存在しない id、上限超過、何にも触れない
+消しゴム軌跡) は無視され、ブロードキャストもされない。
 
 | type | フィールド | 挙動・制約 |
 |---|---|---|
 | `addStroke` | `stroke: Stroke` | 同一 id は冪等 (無視)。2000 本 (`MAX_STROKES`) 超過で古い順に間引き |
-| `eraseStroke` | `strokeId` | 存在しない id は無視。取り消し (Ctrl/Cmd+Z) もこの op を使う |
+| `eraseStroke` | `strokeId` | ストローク単位の削除。存在しない id は無視。取り消し (Ctrl/Cmd+Z) もこの op を使う |
+| `eraseArea` | `points, r` | 部分消し (GoodNotes 風)。軌跡 `points` (1〜40 点, `MAX_ERASE_POINTS`) と半径 `r` (1〜100) のカプセル領域に触れた区間だけを除去し、残存区間を断片ストロークに分割して盤面末尾に追加する。断片 id は `fragmentId(親id, 残存区間の開始 index)` (FNV ハッシュ) で決定的に生成され、クライアント / DO で一致する。どのストロークにも触れない op は無効扱い |
 | `addSticky` | `sticky: Sticky` | 同一 id は冪等。200 枚 (`MAX_STICKIES`) 以上のときは無視 |
 | `moveSticky` | `id, x, y` | 存在しない id は無視 |
 | `editSticky` | `id, text` | text は 80 字まで (`STICKY_TEXT_MAX`) |
@@ -168,6 +169,9 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 | `STROKINGS_PER_SECOND` | 70 | stroking 受信レート (16ms バッチ ≈ 60 件/秒を許容) |
 | `MAX_STROKES` | 2000 | 盤面のストローク上限 (超過は古い順に間引き) |
 | `MAX_STROKE_POINTS` | 600 | 1 ストロークの点数上限 (スキーマで拒否) |
+| `MAX_ERASE_POINTS` | 40 | eraseArea の軌跡点数上限 (スキーマで拒否) |
+| `ERASE_RADIUS_MIN` / `ERASE_RADIUS_MAX` | 1 / 100 | eraseArea の半径の許容範囲 |
+| `ERASE_BATCH_MS` | 60 | 消しゴム軌跡のバッチ送信間隔 (クライアント側) |
 | `MAX_STICKIES` | 200 | 盤面の付箋上限 (超過の addSticky は無視) |
 | `STICKY_TEXT_MAX` | 80 | 付箋テキスト文字数 |
 | `NAME_MIN` / `NAME_MAX` | 2 / 8 | 入室名の文字数 |
