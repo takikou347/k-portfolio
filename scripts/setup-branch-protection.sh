@@ -81,8 +81,11 @@ JSON
 # develop: PR 必須・直 push/削除禁止・CI (verify/e2e) green 必須・会話解決必須。
 #          承認 0 件 (CI green + [must] ゼロなら Claude が merge できる)
 apply_ruleset "protect-develop" "develop" 0 true
-# main: 上記に加えて人間の承認 1 件を必須 (リリースの最終ゲート)。会話解決は必須にしない
-apply_ruleset "protect-main" "main" 1 false
+# main: PR 必須・直 push/削除禁止・CI green 必須。承認は要求しない —
+#   ソロ運用では PR 作成者 = オーナー本人となり、GitHub は自己承認を許さないため
+#   「承認 1 件必須」は誰も満たせず merge が構造的に不可能になる (#59)。
+#   本番の人間ゲートは下の production 環境 (デプロイ承認) が決定論的に担う
+apply_ruleset "protect-main" "main" 0 false
 
 # リポジトリ設定: default branch = develop / merge commit のみ / head ブランチ自動削除
 echo "適用: リポジトリ設定 (default_branch=develop, merge commit のみ, head ブランチ自動削除)"
@@ -93,4 +96,32 @@ gh api --method PATCH "repos/$REPO" \
   -F allow_merge_commit=true \
   -F delete_branch_on_merge=true >/dev/null
 
-echo "完了: main / develop のブランチ保護とリポジトリ設定を適用しました。"
+# production 環境: deploy.yml のデプロイジョブはこの環境に紐づき、required reviewers
+# (リポジトリオーナー) が承認するまで開始されない = 本番デプロイの決定論的な最終ゲート。
+# PUT は冪等 (存在すれば更新、なければ作成)
+# 個人アカウント所有のリポジトリ前提 (owner を User として reviewer に設定する)。
+# Organization 所有で運用する場合は reviewers の type を Team 等に読み替えること
+OWNER="${REPO%%/*}"
+OWNER_ID="$(gh api "users/$OWNER" --jq .id)"
+echo "適用: production 環境 (デプロイ承認者 = $OWNER, デプロイ元 = main のみ)"
+gh api --method PUT "repos/$REPO/environments/production" \
+  --input - >/dev/null <<JSON
+{
+  "reviewers": [
+    { "type": "User", "id": $OWNER_ID }
+  ],
+  "prevent_self_review": false,
+  "deployment_branch_policy": {
+    "protected_branches": false,
+    "custom_branch_policies": true
+  }
+}
+JSON
+# デプロイ元ブランチを main に限定する (多層防御。既に登録済みならスキップ)
+if ! gh api "repos/$REPO/environments/production/deployment-branch-policies" \
+    --jq '.branch_policies[].name' 2>/dev/null | grep -qx "main"; then
+  gh api --method POST "repos/$REPO/environments/production/deployment-branch-policies" \
+    -f name=main >/dev/null
+fi
+
+echo "完了: main / develop のブランチ保護・リポジトリ設定・production 環境を適用しました。"

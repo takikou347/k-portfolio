@@ -68,7 +68,8 @@
 - コミットは Conventional Commits + 末尾 `(#<Issue番号>)` (hooks が決定論的に検査)。
   1 コミット = 1 論理変更
 - **merge の担当**: develop 向け PR は CI green + レビュー [must] ゼロを確認して Claude が merge してよい。
-  **develop → main のリリース PR の merge は必ず人間** (本番デプロイの最終ゲート)。
+  **develop → main のリリース PR の merge は必ず人間**。さらに本番デプロイは GitHub Environments
+  (production) の人間承認を経て実行される — これが決定論的な最終ゲート。
   リリース PR は release-draft.yml が毎週金曜 18:00 JST に自動下書きする
 - **CI が落ちた AI ブランチの PR** は claude-autofix-ci.yml が自動修復する (同一 PR 2 回まで、
   超えたら人間へ引き継ぎ)
