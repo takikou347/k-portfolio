@@ -326,6 +326,12 @@ export default function BoardCanvas() {
     if (!e.isPrimary) return;
     const d = draftRef.current;
     if (d) {
+      // 画面外でボタンを離すと pointerup / lostpointercapture を取り逃すことがある。
+      // ボタン非押下の move が届いた時点で描きかけを確定し、幽霊ドラッグで描き続けない
+      if (e.buttons === 0) {
+        finishStroke();
+        return;
+      }
       const p = boardPoint(e);
       const lastPt = d.points[d.points.length - 1];
       const minDist = 1.2 / store.view.scale;
@@ -336,7 +342,13 @@ export default function BoardCanvas() {
       scheduleFlush();
       if (Math.random() < 0.3) spawnDust(p, store.view.scale, 1);
       dirtyRef.current = true;
-    } else if (eraseDraftRef.current && e.buttons > 0) {
+    } else if (eraseDraftRef.current) {
+      // 消しゴムも同様: ボタン非押下を検知したら未送信分を送り切って終了する
+      if (e.buttons === 0) {
+        flushErase();
+        cancelErase();
+        return;
+      }
       eraseAt(boardPoint(e));
     }
   };

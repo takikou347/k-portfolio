@@ -39,3 +39,36 @@ test('2 つの browser context 間でストロークが同期される', async (
   await expect(strokesOn(b)).toHaveAttribute('data-strokes', '0');
   await expect(strokesOn(a)).toHaveAttribute('data-strokes', '0');
 });
+
+test('画面外でボタンを離しても (pointerup 消失) ドラッグ判定が残らない', async ({ browser }) => {
+  const board = uniqueBoard('e2e-stuck-drag');
+  const a = await openBoard(browser, board, 'はなこ');
+
+  // チョークでドラッグ開始
+  await a.mouse.move(400, 300);
+  await a.mouse.down();
+  for (let i = 1; i <= 6; i++) {
+    await a.mouse.move(400 + i * 15, 300);
+  }
+
+  // 画面外でボタンを離した状況を再現: pointerup は届かず、
+  // ボタン非押下 (buttons: 0) の pointermove だけが届く
+  const ghostMove = (x: number, y: number) =>
+    strokesOn(a).dispatchEvent('pointermove', {
+      pointerId: 1,
+      isPrimary: true,
+      buttons: 0,
+      clientX: x,
+      clientY: y,
+    });
+  await ghostMove(700, 300);
+
+  // 描きかけはその時点で確定され 1 本になる (描き続けない)
+  await expect(strokesOn(a)).toHaveAttribute('data-strokes', '1');
+
+  // 戻ってきてマウスを動かしても、押していない限り新たに描かれない
+  for (let i = 0; i <= 6; i++) {
+    await ghostMove(400 + i * 20, 400);
+  }
+  await expect(strokesOn(a)).toHaveAttribute('data-strokes', '1');
+});
