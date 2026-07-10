@@ -108,6 +108,19 @@ describe('eraseArea と取り消し (myStrokeIds の断片追従)', () => {
     expect(useStore.getState().board.strokes).toHaveLength(0);
   });
 
+  it('自分の clearStrokes で盤面と取り消し候補 (myStrokeIds) が両方空になる', () => {
+    useStore.getState().applyLocalOp({ type: 'clearStrokes' });
+    expect(useStore.getState().board.strokes).toHaveLength(0);
+    expect(useStore.getState().myStrokeIds).toEqual([]);
+    expect(conn.send).toHaveBeenCalledWith({ type: 'op', op: { type: 'clearStrokes' } });
+  });
+
+  it('他人の clearStrokes (サーバー経由) でも myStrokeIds が掃除される', () => {
+    useStore.getState().handleServerMessage({ type: 'op', op: { type: 'clearStrokes' } });
+    expect(useStore.getState().board.strokes).toHaveLength(0);
+    expect(useStore.getState().myStrokeIds).toEqual([]);
+  });
+
   it('消しゴムに触れていないストロークの id はそのまま残る', () => {
     const far: Stroke = { id: 'far', color: 'blue', points: [{ x: 0, y: 500 }] };
     useStore.setState((s) => ({

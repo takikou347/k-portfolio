@@ -117,6 +117,9 @@ CREATE TABLE IF NOT EXISTS stickies (
 - 部分消し (`eraseArea`) は reducer 適用前後の id 集合の差分を取り、消えた親ストロークを
   DELETE・生まれた断片を INSERT で差分反映する。断片 id は決定的 (`fragmentId`) なので
   クライアント側の楽観適用結果と一致する
+- 全消し (`clearStrokes`) は strokes テーブルを全行 DELETE する。stickies テーブルには
+  触れない (付箋は対象外)。ストロークが 1 本もない盤面では reducer が同一参照を返すため
+  SQLite への書き込みもブロードキャストも起きない
 - 付箋の読み出しは `stickySchema.safeParse` を通す — `w` / `h` / `fontSize` を持たない
   旧データにデフォルト値を補完する後方互換のため。壊れた行は黙って捨てる
 

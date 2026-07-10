@@ -206,6 +206,8 @@ export const useStore = create<Store>()((set, get) => ({
           } else if (msg.op.type === 'eraseArea') {
             // 他人の部分消しで自分のストロークが分割されても断片を取り消せるようにする
             myStrokeIds = remapMyStrokeIds(s.myStrokeIds, s.board.strokes, msg.op);
+          } else if (msg.op.type === 'clearStrokes') {
+            myStrokeIds = [];
           }
           return { board, drafts, myStrokeIds };
         });
@@ -232,6 +234,8 @@ export const useStore = create<Store>()((set, get) => ({
       } else if (op.type === 'eraseArea') {
         // 自分の部分消しに自分のストロークが巻き込まれても断片を取り消せるようにする
         myStrokeIds = remapMyStrokeIds(s.myStrokeIds, s.board.strokes, op);
+      } else if (op.type === 'clearStrokes') {
+        myStrokeIds = [];
       }
       return { board, myStrokeIds };
     });

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Join } from '../shared/schema';
 import { screenToBoard } from './board/view';
 import Banner from './components/Banner';
+import BoardSwitcher from './components/BoardSwitcher';
 import CursorLayer from './components/CursorLayer';
 import NameDialog from './components/NameDialog';
 import Placeholder from './components/Placeholder';
@@ -74,6 +75,7 @@ export default function App() {
       <Placeholder />
       <StickySheet />
       <Banner />
+      <BoardSwitcher boardId={boardId} />
       <PresenceBadge />
       <ZoomControls />
       <Tray

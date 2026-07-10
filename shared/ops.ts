@@ -61,6 +61,10 @@ export function applyOp(state: BoardState, op: Op): BoardState {
         strokes.length > MAX_STROKES ? strokes.slice(strokes.length - MAX_STROKES) : strokes;
       return { ...state, strokes: trimmed };
     }
+    case 'clearStrokes': {
+      if (state.strokes.length === 0) return state;
+      return { ...state, strokes: [] };
+    }
     case 'addSticky': {
       if (state.stickies.some((s) => s.id === op.sticky.id)) return state;
       if (state.stickies.length >= MAX_STICKIES) return state;
