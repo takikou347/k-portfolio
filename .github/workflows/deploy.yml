@@ -12,6 +12,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # 本番の決定論的な最終ゲート: production 環境の required reviewers (人間) が
+    # 承認するまでこのジョブは開始されない (設定は scripts/setup-branch-protection.sh)
+    environment: production
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

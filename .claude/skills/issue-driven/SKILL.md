@@ -30,7 +30,8 @@ main と develop へは直 push しない・削除しない。
 
 1. **リリース PR を作成**: base = main、head = develop。タイトルは `release: YYYY-MM-DD` 形式
 2. **本文にリリースノートを書く**: 含まれる Issue / PR を列挙し、ユーザー影響のある変更を先頭に
-3. merge は人間の担当。merge されると deploy.yml が本番デプロイを実行する
+3. merge は人間の担当。merge 後、deploy.yml のデプロイは **production 環境の承認待ち**になるので、
+   Actions の「Review deployments」から人間が承認して本番デプロイを実行する
 4. **merge 後も develop は削除しない**。merge 後に GitHub Release を作成すると
    `.github/release.yml` のカテゴリ設定でリリースノートを自動生成できる
 

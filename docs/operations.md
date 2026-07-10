@@ -35,13 +35,23 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
    - `develop` は **Require conversation resolution** (未解決のレビュースレッドがあると merge 不可)。
      Claude の自動 merge フロー (CI green + [must] ゼロで merge) とも相互作用する — レビューで
      スレッドが立った場合は解決 (resolve) するまで merge がブロックされる
-   - `main` は加えて **人間の承認 1 件以上を必須 (Require approvals)** — develop → main のリリース PR
-     merge の最終ゲートを人間に固定する
+   - `main` に **承認必須は設定しない** — ソロ運用では PR 作成者 = オーナー本人になり、
+     GitHub は自己承認を許可しないため「承認 1 件必須」は誰も満たせず merge が構造的に
+     不可能になる (#59 で実測)。本番の人間ゲートは下記の **production 環境のデプロイ承認**
+     が代わりに担う
    - **Bypass actors は空のまま**にする (誰も保護を迂回できない)
    - `gh auth login` 済みなら補助スクリプトで一括適用できる:
      `bash scripts/setup-branch-protection.sh <owner>/<repo>`（冪等 create-or-update。
      既存 Ruleset があっても望ましい状態に上書きするので、設定ドリフトの復旧にも使える）
-3. **リポジトリ設定** (上記スクリプトが Ruleset とあわせて適用する):
+3. **production 環境 (デプロイ承認 — 本番の決定論的な最終ゲート)**。上記スクリプトが作成する:
+   - `deploy.yml` のデプロイジョブは `environment: production` に紐づき、**required reviewers
+     (オーナー) が Actions 画面で承認するまで実行されない**。リリース PR の merge を誰が
+     行っても、本番反映の直前で必ず人間の判断が入る
+   - リリース PR を merge すると Actions に「Review deployments」の承認待ちが現れるので、
+     内容を確認して Approve する (却下すればデプロイされない)
+   - **注意**: production 環境が存在しない状態でデプロイが走ると、GitHub が保護なしの環境を
+     自動作成して素通りする。**スクリプトの適用を先に**行うこと
+4. **リポジトリ設定** (上記スクリプトが Ruleset とあわせて適用する):
    - **default branch = `develop`** — PR の base 既定と schedule workflow の参照先を develop にする
    - **merge commit のみ有効** (squash / rebase merge は無効) — Conventional Commits の履歴を保つ
    - **head ブランチの自動削除** (`delete_branch_on_merge`) — Issue ブランチの掃除を自動化する
@@ -49,9 +59,10 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
 
    > **なぜ必須か**: ローカルでは `scripts/hooks/guard-bash.sh` が main/develop への直 push・不正ブランチ・
    > 非 Conventional コミットを 100% 遮断する。しかし `claude-auto-resolve.yml` は `contents: write` と
-   > PR merge 能力を持ち、**CI ランナー上では guard-bash.sh は発火しない**。「直 push しない」「リリース PR を
-   > merge しない」がプロンプトの禁止事項だけで担保されている状態では逸脱経路が理論上残るため、ブランチ保護を
-   > クラウド自動化レイヤーの決定論的な最後の砦として必須とする（ローカル hooks と合わせて二重の防御）。
+   > PR merge 能力を持ち、**CI ランナー上では guard-bash.sh は発火しない**。プロンプトの禁止事項だけでは
+   > 逸脱経路が理論上残るため、決定論的な最後の砦を GitHub 側に置く: 直 push・削除・CI red の merge は
+   > **ブランチ保護 Ruleset** が遮断し、本番反映は **production 環境のデプロイ承認** が遮断する
+   > (仮に自動化がリリース PR を merge してしまっても、人間が承認するまで本番には出ない)。
 
 ## 課金リスクについて
 
