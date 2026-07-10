@@ -57,42 +57,21 @@
 
 ## Git 運用 (Issue 駆動 + develop フロー)
 
-### ブランチ戦略
+ブランチ作成・PR・リリースの具体的な手順は issue-driven スキルに従う。常に守る要点のみここに置く:
 
-- **main = デプロイブランチ**。main への push で本番デプロイが走る。リリース以外で触らない
-- **develop = 統合ブランチ**。日々の修正・機能追加はすべて develop に集める
-- **main と develop への直 push は禁止** (ローカルは hooks、クラウド (Actions) は GitHub の
-  ブランチ保護 Ruleset が決定論的に遮断)。変更は必ず PR 経由。`guard-bash.sh` は CI ランナー上では
-  発火しないため、auto-resolve の直 push / リリース PR merge 禁止はブランチ保護でも担保する
-  (docs/operations.md / `scripts/setup-branch-protection.sh`)
-- **main / develop はマージ後も削除しない** (永続ブランチ)。Issue ブランチはマージ後に消してよい
-
-### 日々の開発
-
-- **1 Issue = 1 ブランチ = 1 PR**。PR 本文に `Closes #<番号>` を必ず書き、複数 Issue を 1 PR にまとめない
-- **Issue がない修正・機能追加は、先に Issue を作成してから着手する** (背景と完了条件を書く)。
-  タイポ修正などの些末な変更でも省略しない — Issue が作業の記録になる
-- ブランチは**最新の develop から**切り、`<type>/issue-<番号>-<説明>` 形式にする
-  (例: `feat/issue-12-reaction-emoji`)。日次バッチ (auto-resolve) は `auto/issue-<番号>` を使う。**PR の base は develop**
-- コミットメッセージは Conventional Commits 形式: `feat: / fix: / docs: / style: / refactor: /
-  perf: / test: / chore: / ci:` + 末尾に `(#<Issue番号>)` (例: `feat: リアクションに 🎉 を追加 (#12)`)。
-  プレフィックスは hooks (guard-bash.sh) が決定論的に検査する
-- 1 コミット = 1 論理変更。無関係な変更を混ぜない
-- **merge の担当**: develop 向けの PR は、CI が green かつレビュー指摘 [must] がゼロであることを
-  確認したうえで Claude が merge してよい (作成直後の PR を検証確認なしに merge しない)。
-  **develop → main のリリース PR の merge は必ず人間が行う** (本番デプロイの最終ゲート)
-- **CI が落ちた AI ブランチの PR** は claude-autofix-ci.yml が自動修復する。試行は同一 PR 2 回まで —
-  workflow 自身が PR に残すマーカーコメントで決定論的にカウントし、超えたら人間へ引き継ぐ
-
-### リリース (develop → main)
-
-- リリース PR は release-draft.yml が**毎週金曜 18:00 JST に自動で下書き・更新**する
-  (workflow_dispatch で随時実行可)。手動で作る場合も同じ形式にする
-- 対象の Issue がすべて develop に入ったタイミングで、**develop → main のリリース PR** を作成する
-- リリース PR の本文に含まれる Issue / PR を列挙する — これがリリースノートになる
-  (merge 後に GitHub Release を作成すると `.github/release.yml` のカテゴリで自動生成できる)
-- merge は人間の担当。merge されると deploy.yml が本番デプロイを実行する
-- 具体的な手順は issue-driven スキルに従う (実装部分は vertical-slice スキル)
+- **main = デプロイ / develop = 統合**。両方とも直 push・削除は禁止 (hooks + ブランチ保護 Ruleset が
+  決定論的に遮断。→ docs/operations.md / `scripts/setup-branch-protection.sh`)。変更は必ず PR 経由で、
+  **PR の base は develop**
+- **1 Issue = 1 ブランチ = 1 PR**。Issue を先に作成してから、最新の develop から
+  `<type>/issue-<番号>-<説明>` でブランチを切る (日次バッチは `auto/issue-<番号>`)。
+  PR 本文に `Closes #<番号>` を必ず書く
+- コミットは Conventional Commits + 末尾 `(#<Issue番号>)` (hooks が決定論的に検査)。
+  1 コミット = 1 論理変更
+- **merge の担当**: develop 向け PR は CI green + レビュー [must] ゼロを確認して Claude が merge してよい。
+  **develop → main のリリース PR の merge は必ず人間** (本番デプロイの最終ゲート)。
+  リリース PR は release-draft.yml が毎週金曜 18:00 JST に自動下書きする
+- **CI が落ちた AI ブランチの PR** は claude-autofix-ci.yml が自動修復する (同一 PR 2 回まで、
+  超えたら人間へ引き継ぎ)
 
 ## リアルタイム設計の要点 (必読)
 
@@ -102,12 +81,6 @@
 - DO 内で `setTimeout` / `setInterval` を使わない (ハイバネーションを妨げる)。時限処理は Alarm
 - カーソル座標は 80ms スロットルで送信し、永続化しない
 - 受信メッセージは必ず shared/ の zod スキーマで検証してから適用する
-
-## UI の自己検証
-
-playwright MCP が設定済み (.mcp.json)。UI を実装したら MCP のブラウザで実際に開き、
-スクリーンショットを撮って design/DESIGN.md との一致 (質感・レイアウト・レスポンシブ) を
-自分の目で確認してから完了報告する。375px / 768px / 1920px の 3 幅で確認する。
 
 ## 知らないことは調べる
 
