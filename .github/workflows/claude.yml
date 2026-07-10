@@ -21,7 +21,7 @@ concurrency:
 jobs:
   respond:
     # @claude を含むイベントだけに反応する (全コメントで API を消費しない)。
-    # セキュリティ: このジョブは書き込み権限 + ANTHROPIC_API_KEY を持つため、
+    # セキュリティ: このジョブは書き込み権限 + CLAUDE_CODE_OAUTH_TOKEN を持つため、
     # (1) 起動できるのはリポジトリの OWNER / MEMBER / COLLABORATOR のみ、
     # (2) PR 系イベントはフォーク PR を除外する (フォークのコードを書き込み権限で扱わない)
     if: |
@@ -47,11 +47,11 @@ jobs:
       - name: Check secrets
         id: gate
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (docs/operations.md 参照)"
+            echo "::notice::CLAUDE_CODE_OAUTH_TOKEN 未設定のためスキップ (docs/operations.md 参照)"
           fi
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'
@@ -71,7 +71,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         if: steps.gate.outputs.skip != 'true'
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
             --model sonnet
             --max-turns 40
