@@ -29,7 +29,9 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
    - **Require status checks to pass** — `verify` と `e2e` (ci.yml のジョブ名) を required にする。
      CI green の確認を運用ルールではなく GitHub 側で決定論的に強制する。`docs-sync` はラベル
      (`docs-not-needed`) でスキップできる運用のため required に含めない (GitHub は skipped を
-     pass 扱いにするが、ラベル運用との干渉を避けるため対象外とする)
+     pass 扱いにするが、ラベル運用との干渉を避けるため対象外とする)。
+     strict モード (merge 前に PR ブランチの最新化を要求) は使わない — 頻繁な rebase を
+     強いるコストに見合わないという運用判断
    - `develop` は **Require conversation resolution** (未解決のレビュースレッドがあると merge 不可)。
      Claude の自動 merge フロー (CI green + [must] ゼロで merge) とも相互作用する — レビューで
      スレッドが立った場合は解決 (resolve) するまで merge がブロックされる

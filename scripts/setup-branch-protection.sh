@@ -20,7 +20,9 @@ if ! command -v gh >/dev/null 2>&1; then
 fi
 
 ruleset_id_by_name() {
-  gh api "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$1\") | .id" 2>/dev/null || true
+  # --paginate: Ruleset が複数ページあっても検出漏れ (= 重複作成) を防ぐ。
+  # head -n1: 過去の手動作成などで同名 Ruleset が重複していても id を 1 件に絞る
+  gh api --paginate "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$1\") | .id" 2>/dev/null | head -n1 || true
 }
 
 # $1: Ruleset 名, $2: 対象ブランチ (main/develop), $3: 必要な承認数,
