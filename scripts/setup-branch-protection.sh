@@ -99,17 +99,29 @@ gh api --method PATCH "repos/$REPO" \
 # production 環境: deploy.yml のデプロイジョブはこの環境に紐づき、required reviewers
 # (リポジトリオーナー) が承認するまで開始されない = 本番デプロイの決定論的な最終ゲート。
 # PUT は冪等 (存在すれば更新、なければ作成)
+# 個人アカウント所有のリポジトリ前提 (owner を User として reviewer に設定する)。
+# Organization 所有で運用する場合は reviewers の type を Team 等に読み替えること
 OWNER="${REPO%%/*}"
 OWNER_ID="$(gh api "users/$OWNER" --jq .id)"
-echo "適用: production 環境 (デプロイ承認者 = $OWNER)"
+echo "適用: production 環境 (デプロイ承認者 = $OWNER, デプロイ元 = main のみ)"
 gh api --method PUT "repos/$REPO/environments/production" \
   --input - >/dev/null <<JSON
 {
   "reviewers": [
     { "type": "User", "id": $OWNER_ID }
   ],
-  "prevent_self_review": false
+  "prevent_self_review": false,
+  "deployment_branch_policy": {
+    "protected_branches": false,
+    "custom_branch_policies": true
+  }
 }
 JSON
+# デプロイ元ブランチを main に限定する (多層防御。既に登録済みならスキップ)
+if ! gh api "repos/$REPO/environments/production/deployment-branch-policies" \
+    --jq '.branch_policies[].name' 2>/dev/null | grep -qx "main"; then
+  gh api --method POST "repos/$REPO/environments/production/deployment-branch-policies" \
+    -f name=main >/dev/null
+fi
 
 echo "完了: main / develop のブランチ保護・リポジトリ設定・production 環境を適用しました。"
