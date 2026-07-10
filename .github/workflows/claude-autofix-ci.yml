@@ -39,7 +39,7 @@ jobs:
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (README「デプロイと Secrets」参照)"
+            echo "::notice::ANTHROPIC_API_KEY 未設定のためスキップ (docs/operations.md 参照)"
             exit 0
           fi
           # 自動修復の対象は AI が運用するブランチのみ (人間のブランチには手を出さない)。
