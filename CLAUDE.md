@@ -113,4 +113,4 @@ playwright MCP が設定済み (.mcp.json)。UI を実装したら MCP のブラ
 
 Durable Objects / Hibernation / wrangler / Vite の API に確信が持てない場合は、推測せず
 公式ドキュメントを WebFetch で確認してから実装する。一次情報:
-https://developers.cloudflare.com/durable-objects/ (llms.txt あり)
+<https://developers.cloudflare.com/durable-objects/> (llms.txt あり)

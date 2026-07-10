@@ -5,7 +5,7 @@
 
 ## 接続
 
-```
+```text
 GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 ```
 
@@ -73,7 +73,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 ブロードキャストもされない。
 
 | type | フィールド | 挙動・制約 |
-|---|---|---|
+| --- | --- | --- |
 | `addStroke` | `stroke: Stroke` | 同一 id は冪等 (無視)。2000 本 (`MAX_STROKES`) 超過で古い順に間引き |
 | `eraseStroke` | `strokeId` | 存在しない id は無視。取り消し (Ctrl/Cmd+Z) もこの op を使う |
 | `addSticky` | `sticky: Sticky` | 同一 id は冪等。200 枚 (`MAX_STICKIES`) 以上のときは無視 |
@@ -85,18 +85,18 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 
 ### データ型
 
-**Stroke**
+#### Stroke
 
 | フィールド | 型 / 制約 |
-|---|---|
+| --- | --- |
 | `id` | 文字列 1〜64 |
 | `color` | `white \| pink \| yellow \| blue` (チョーク 4 色) |
 | `points` | `{x, y}` の配列、1〜600 点 |
 
-**Sticky**
+#### Sticky
 
 | フィールド | 型 / 制約 | 省略時 |
-|---|---|---|
+| --- | --- | --- |
 | `id` | 文字列 1〜64 | — |
 | `x`, `y` | 座標 | — |
 | `color` | `cream \| rose \| sky` | — |
@@ -158,7 +158,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 黙って破棄される (`worker/rate-limit.ts`)。
 
 | 定数 | 値 | 適用 |
-|---|---|---|
+| --- | --- | --- |
 | `MAX_CONNECTIONS` | 100 | 1 ボードの参加者上限。超過は spectator |
 | `MAX_SPECTATORS` | 20 | spectator 上限。超過は close 4003 |
 | `CLOSE_CODE_FULL` | 4003 | 満席拒否の close code (再接続禁止の合図) |

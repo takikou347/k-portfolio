@@ -1,0 +1,17 @@
+{
+  // markdownlint-cli2 の設定。pnpm lint / post-edit-check hook / Stop ゲート / CI が共通で使う。
+  // 対象 glob は呼び出し側が渡す (config の globs は CLI 引数に常に追加されてしまい、
+  // hook の単一ファイル検査が全ファイル検査になるため、ここには書かない)
+  "ignores": ["node_modules/**", "dist/**", "test-results/**", "playwright-report/**"],
+  "config": {
+    "default": true,
+    // 日本語ドキュメントの行長は折り返し裁量に任せる (表・URL も多い)
+    "MD013": false,
+    // 設計ドキュメントでの装飾的なインライン HTML を許容する
+    "MD033": false,
+    // 同名見出しは兄弟レベルで重複しなければ許す
+    "MD024": { "siblings_only": true },
+    // .claude/agents/ 等の md はエージェントへのプロンプトで、見出しで始まる文書とは限らない
+    "MD041": false
+  }
+}
