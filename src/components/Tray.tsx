@@ -41,7 +41,13 @@ export default function Tray({ onUndo, canUndo = false, onReact }: Props) {
     }
     setConfirmClear(false);
   };
-  useEffect(() => disarmClear, []);
+  // アンマウント後に確認解除タイマーが発火しないように (依存なしで済むよう ref だけ触る)
+  useEffect(
+    () => () => {
+      if (confirmTimerRef.current !== null) clearTimeout(confirmTimerRef.current);
+    },
+    [],
+  );
   const onClearClick = () => {
     if (!confirmClear) {
       setConfirmClear(true);
