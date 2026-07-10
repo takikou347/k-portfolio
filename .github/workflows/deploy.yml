@@ -4,9 +4,11 @@ on:
   push:
     branches: [main]
 
+# 承認されないまま waiting で残った古い run がスロットを塞ぎ、後続リリースの run が
+# 永久に pending になるのを防ぐ: 新しい main への push が古い run を自動キャンセルする (#66)
 concurrency:
   group: deploy-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
