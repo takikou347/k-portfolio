@@ -9,6 +9,14 @@ cd "$CLAUDE_PROJECT_DIR"
 # scaffold 前は何もしない (verify-stop.sh と同じ基準)
 [ -f package.json ] || exit 0
 
+# コミッター設定が漏れたままコミットすると GitHub 上で Unverified になり、
+# 後から rebase で直す羽目になる (2026-07-10 の実障害)。ローカル設定が無ければ補う
+if [ -z "$(git config user.email 2>/dev/null)" ]; then
+  git config user.name "Claude"
+  git config user.email "noreply@anthropic.com"
+  echo "git のコミッターを Claude <noreply@anthropic.com> に設定しました。"
+fi
+
 if [ ! -d node_modules ]; then
   if command -v pnpm >/dev/null 2>&1; then
     echo "node_modules がないため pnpm install --frozen-lockfile を実行します..."
