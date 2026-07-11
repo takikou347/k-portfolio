@@ -83,6 +83,7 @@ export default function BoardSwitcher({ boardId }: Props) {
               placeholder="黒板のなまえ"
               aria-label="黒板の名前"
               maxLength={64}
+              disabled={checking}
             />
             <div className="board-create-actions">
               <button type="submit" disabled={!isBoardId(dest) || checking}>

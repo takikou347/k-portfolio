@@ -162,6 +162,7 @@ canvas 2D に直接描く (`src/board/BoardCanvas.tsx`)。
 | 同時接続 100 / spectator 20 | DO の接続受け入れ (`board-do.ts`) |
 | 受信レート制限 (op 20 / cursor 15 / reaction 3 / stroking 70 件/秒・接続ごと) | `worker/rate-limit.ts` (1 秒窓、超過は黙って破棄) |
 | カーソル 80ms スロットル・ストローク 16ms バッチ | クライアント (`connection.ts` / `BoardCanvas.tsx`) |
+| `/api/boards` の IP ごとレート (20 件/10 秒、超過 429) | `worker/index.ts` (アイソレートローカルの粗い防波堤) |
 | 盤面上限 (ストローク 2000 / 付箋 200 / 1 ストローク 600 点 / テキスト 80 字) | zod スキーマ + reducer + SQLite の間引き |
 
 Cloudflare 無料プランは fail-closed (超過で課金ではなく停止) だが、防御は
