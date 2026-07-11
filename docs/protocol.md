@@ -30,6 +30,20 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 
 - クライアントは指数バックオフ (`min(500 * 2^attempts, 8000)` ms ± 30% ジッター) で再接続する
 - 再接続後はサーバーが `snapshot` で盤面全量を送り直す。差分同期はない
+- close code **4003** (`CLOSE_CODE_FULL` = 満席拒否) と **4004** (`CLOSE_CODE_DELETED` =
+  黒板が削除された) を受けたら再接続してはならない。4004 ではクライアントは
+  「この黒板は削除されました」を表示して操作を止める
+
+### 黒板のメタ操作 (HTTP API)
+
+WebSocket とは別に、黒板単位のメタ操作を `/api/boards/<boardId>` で受ける
+(同じ boardId は同じ Durable Object にルーティングされる):
+
+- `GET` → `{ "exists": boolean }` — 実在確認。「一度でも参加された (meta の used フラグ) or
+  盤面データあり or 接続中あり」で true。名前指定作成の同名バリデーションに使う
+- `DELETE` → **204** — 黒板をデータごと削除。接続中の全クライアントを close code 4004 で
+  切断する。削除後は exists が false に戻り、同じ名前で作り直せる
+- その他のメソッドは **405**
 
 ## クライアント → サーバー (`ClientMessage`)
 
@@ -164,6 +178,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 | `MAX_CONNECTIONS` | 100 | 1 ボードの参加者上限。超過は spectator |
 | `MAX_SPECTATORS` | 20 | spectator 上限。超過は close 4003 |
 | `CLOSE_CODE_FULL` | 4003 | 満席拒否の close code (再接続禁止の合図) |
+| `CLOSE_CODE_DELETED` | 4004 | 黒板削除による切断の close code (再接続禁止の合図) |
 | `OPS_PER_SECOND` | 20 | op 受信レート (件/秒・接続ごと) |
 | `CURSORS_PER_SECOND` | 15 | cursor 受信レート |
 | `REACTIONS_PER_SECOND` | 3 | reaction 受信レート (クライアント側でも自主制限) |

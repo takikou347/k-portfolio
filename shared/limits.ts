@@ -9,6 +9,9 @@ export const MAX_SPECTATORS = 20;
 /** スペクテータ上限超過による接続拒否の WebSocket close code (再接続を止める合図) */
 export const CLOSE_CODE_FULL = 4003;
 
+/** 黒板が削除されたことによる切断の WebSocket close code (再接続を止める合図) */
+export const CLOSE_CODE_DELETED = 4004;
+
 /** 接続ごとの op 受信レート上限 (件/秒)。超過分は黙って破棄 */
 export const OPS_PER_SECOND = 20;
 

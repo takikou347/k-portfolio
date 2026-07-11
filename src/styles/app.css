@@ -830,8 +830,44 @@
   overflow-y: auto;
 }
 
+.board-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 行ごとの削除。2 度押し確認中はマグネット赤で警告する */
+.board-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-chalk-white);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.board-del-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.board-del-btn.confirm {
+  opacity: 1;
+  color: var(--color-chalk-white);
+  background: var(--color-magnet);
+}
+
 .board-list a {
   display: block;
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 13px;
   color: var(--color-chalk-white);

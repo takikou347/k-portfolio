@@ -78,12 +78,15 @@ type Store = {
   self: User | null;
   users: User[];
   full: boolean;
+  /** この黒板が削除された (再接続せず、操作も受け付けない) */
+  deleted: boolean;
   /** 他人のカーソル位置 (ボード座標)。userId → 座標 */
   cursors: Record<string, Point>;
   setConnection: (connection: BoardConnection | null) => void;
   setStatus: (status: ConnectionStatus) => void;
   /** スペクテータ上限超過で接続拒否された (読み取りもできない満席) */
   markFull: () => void;
+  markDeleted: () => void;
   handleServerMessage: (msg: ServerMessage) => void;
 
   // ---- 盤面 ----
@@ -137,10 +140,12 @@ export const useStore = create<Store>()((set, get) => ({
   self: null,
   users: [],
   full: false,
+  deleted: false,
   cursors: {},
   setConnection: (connection) => set({ connection }),
   setStatus: (status) => set({ status }),
   markFull: () => set({ full: true }),
+  markDeleted: () => set({ deleted: true, cursors: {}, drafts: {} }),
   handleServerMessage: (msg) => {
     switch (msg.type) {
       case 'snapshot':
@@ -219,9 +224,9 @@ export const useStore = create<Store>()((set, get) => ({
   drafts: {},
   myStrokeIds: [],
   applyLocalOp: (op) => {
-    // 読み取り専用 (満席) と再接続中は受け付けない。
+    // 読み取り専用 (満席)・削除済み・再接続中は受け付けない。
     // 接続断中に楽観適用すると、送信されないまま snapshot で無音ロールバックされるため
-    if (get().full || get().status !== 'open') return;
+    if (get().full || get().deleted || get().status !== 'open') return;
     set((s) => {
       const board = applyOp(s.board, op);
       let myStrokeIds = s.myStrokeIds;

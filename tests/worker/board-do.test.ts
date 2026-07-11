@@ -1,6 +1,12 @@
 import { env, runInDurableObject, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { CLOSE_CODE_FULL, MAX_CONNECTIONS, MAX_SPECTATORS, MAX_STROKES } from '../../shared/limits';
+import {
+  CLOSE_CODE_DELETED,
+  CLOSE_CODE_FULL,
+  MAX_CONNECTIONS,
+  MAX_SPECTATORS,
+  MAX_STROKES,
+} from '../../shared/limits';
 import { applyOp, emptyBoardState } from '../../shared/ops';
 import type { Op, ServerMessage, Stroke } from '../../shared/schema';
 import type { BoardDO } from '../../worker/board-do';
@@ -72,11 +78,46 @@ describe('Worker ルーティング', () => {
     expect(await res.json()).toEqual({ exists: true });
   });
 
-  it('/api/boards/:id への GET 以外のメソッドは 405 を返す', async () => {
+  it('/api/boards/:id への GET / DELETE 以外のメソッドは 405 を返す', async () => {
     const res = await SELF.fetch('https://example.com/api/boards/method-board', {
       method: 'POST',
     });
     expect(res.status).toBe(405);
+  });
+
+  it('DELETE /api/boards/:id で盤面がデータごと消え、接続は 4004 で閉じ、exists も false に戻る', async () => {
+    const a = await connect('delete-board', 'はなこ');
+    await a.next(); // snapshot
+
+    const stub = env.BOARD.getByName('delete-board');
+    await runInDurableObject(stub, async (instance: BoardDO) => {
+      instance.applyAndPersist({
+        type: 'addStroke',
+        stroke: { id: 's1', color: 'white', points: [{ x: 0, y: 0 }] },
+      });
+    });
+    const closed = new Promise<number>((resolve) => {
+      a.ws.addEventListener('close', (e) => resolve(e.code));
+    });
+
+    const res = await SELF.fetch('https://example.com/api/boards/delete-board', {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(204);
+    // 閲覧中の接続は「削除された」専用コードで切断される (クライアントは再接続しない)
+    expect(await closed).toBe(CLOSE_CODE_DELETED);
+
+    // ストレージも空になっている (strokes / stickies / meta)
+    await runInDurableObject(stub, async (_instance: BoardDO, state) => {
+      for (const table of ['strokes', 'stickies', 'meta']) {
+        const count = Number(state.storage.sql.exec(`SELECT COUNT(*) AS c FROM ${table}`).one().c);
+        expect(count).toBe(0);
+      }
+    });
+
+    // exists が false に戻る = 同じ名前で作り直せる
+    const ex = await SELF.fetch('https://example.com/api/boards/delete-board');
+    expect(await ex.json()).toEqual({ exists: false });
   });
 
   it('不正な入室情報 (名前 1 文字) は 400 で拒否する', async () => {
