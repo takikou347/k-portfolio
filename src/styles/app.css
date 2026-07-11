@@ -755,14 +755,14 @@
   background: rgba(255, 255, 255, 0.24);
 }
 
-.board-goto {
+.board-create {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.board-goto input {
-  flex: 1;
+.board-create input {
+  width: 100%;
   min-width: 0;
   font-family: var(--font-mono);
   font-size: 13px;
@@ -773,13 +773,19 @@
   padding: 6px 4px;
 }
 
-.board-goto input::placeholder {
+.board-create input::placeholder {
   font-family: var(--font-ui);
   color: var(--color-chalk-white);
   opacity: 0.5;
 }
 
-.board-goto button {
+.board-create-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.board-create-actions button {
+  flex: 1;
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 500;
@@ -790,16 +796,23 @@
   min-height: 36px;
   padding: 6px 12px;
   cursor: pointer;
-  flex: none;
 }
 
-.board-goto button:hover {
+.board-create-actions button:hover {
   background: rgba(255, 255, 255, 0.24);
 }
 
-.board-goto button:disabled {
+.board-create-actions button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* 同名エラーはチョーク桃で警告する */
+.board-error {
+  font-family: var(--font-hand);
+  font-size: 13px;
+  color: var(--color-chalk-pink);
+  margin: 0;
 }
 
 .board-popover-heading {

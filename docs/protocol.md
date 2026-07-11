@@ -179,6 +179,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 | `CURSOR_THROTTLE_MS` | 80 | カーソル送信スロットル |
 | `STROKE_BATCH_MS` | 16 | stroking のバッチ送信間隔 |
 | `ZOOM_MIN` / `ZOOM_MAX` | 0.5 / 2 | クライアントのズーム範囲 |
+| `BOARD_API_PER_WINDOW` / `BOARD_API_WINDOW_MS` | 20 / 10,000ms | `/api/boards/:id` の IP ごと受信レート (Worker 側で数え、超過は **429**) |
 
 ## 設計上の約束
 

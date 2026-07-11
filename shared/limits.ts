@@ -76,3 +76,10 @@ export const STROKE_BATCH_MS = 16;
 /** ズーム倍率の範囲 */
 export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 2;
+
+/**
+ * /api/boards (実在確認などのメタ操作) の IP ごとの受信レート上限 (10 秒窓)。
+ * 実在しない名前を撃ちまくって DO を大量起動させる無料枠攻撃の防波堤。超過は 429
+ */
+export const BOARD_API_PER_WINDOW = 20;
+export const BOARD_API_WINDOW_MS = 10_000;
