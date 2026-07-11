@@ -10,6 +10,10 @@ concurrency:
 
 jobs:
   triage:
+    # セキュリティ: public リポジトリでは誰でも Issue を起票できる。外部者の Issue で
+    # サブスクリプション利用枠を消費させられたり、本文経由のプロンプトインジェクションで
+    # ラベル・コメント操作をされないよう、起票者を claude.yml と同じ基準で限定する (#78)
+    if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
