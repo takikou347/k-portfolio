@@ -1,4 +1,4 @@
-import { eraseStrokePath } from './erase';
+import { eraseStrokePath, wipeStrokeLeftOf } from './erase';
 import { MAX_STICKIES, MAX_STROKES } from './limits';
 import type { Op, Sticky, Stroke } from './schema';
 
@@ -64,6 +64,22 @@ export function applyOp(state: BoardState, op: Op): BoardState {
     case 'clearStrokes': {
       if (state.strokes.length === 0) return state;
       return { ...state, strokes: [] };
+    }
+    case 'wipeLeftOf': {
+      // 左から拭き取り: eraseArea と同じく、消えた親の断片を末尾に追記して
+      // SQLite の追記順と配列の並びを一致させる
+      const kept: Stroke[] = [];
+      const added: Stroke[] = [];
+      for (const s of state.strokes) {
+        const fragments = wipeStrokeLeftOf(s, op.x);
+        if (fragments === null) kept.push(s);
+        else added.push(...fragments);
+      }
+      if (kept.length === state.strokes.length) return state;
+      const strokes = [...kept, ...added];
+      const trimmed =
+        strokes.length > MAX_STROKES ? strokes.slice(strokes.length - MAX_STROKES) : strokes;
+      return { ...state, strokes: trimmed };
     }
     case 'addSticky': {
       if (state.stickies.some((s) => s.id === op.sticky.id)) return state;

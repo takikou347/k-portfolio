@@ -83,7 +83,7 @@ WebSocket とは別に、黒板単位のメタ操作を `/api/boards/<boardId>` 
 
 ## 盤面操作 (`Op`)
 
-`type` を discriminator とする 10 種。無効な op (存在しない id、上限超過、何にも触れない
+`type` を discriminator とする 11 種。無効な op (存在しない id、上限超過、何にも触れない
 消しゴム軌跡) は無視され、ブロードキャストもされない。
 
 | type | フィールド | 挙動・制約 |
@@ -92,6 +92,7 @@ WebSocket とは別に、黒板単位のメタ操作を `/api/boards/<boardId>` 
 | `eraseStroke` | `strokeId` | ストローク単位の削除。存在しない id は無視。取り消し (Ctrl/Cmd+Z) もこの op を使う |
 | `eraseArea` | `points, r` | 部分消し (GoodNotes 風)。軌跡 `points` (1〜40 点, `MAX_ERASE_POINTS`) と半径 `r` (1〜100) のカプセル領域に触れた区間だけを除去し、残存区間を断片ストロークに分割して盤面末尾に追加する。断片 id は `fragmentId(親id, 残存区間の開始 index)` (FNV ハッシュ) で決定的に生成され、クライアント / DO で一致する。どのストロークにも触れない op は無効扱い |
 | `clearStrokes` | — | 全消し。盤面のチョークストロークをすべて消す (付箋は対象外)。ストロークが 1 本もないときは無効扱い。クライアントの取り消し候補 (`myStrokeIds`) もクリアされる |
+| `wipeLeftOf` | `x` | 左から拭き取り。全ストロークについて x (ボード座標) より左の点を取り除き、残存区間を断片に分割して末尾に追加する (断片 id は `fragmentId` で決定的)。UI のスライド全消しが 60ms バッチで送る。どの点にも触れない op は無効扱い。付箋は対象外 |
 | `addSticky` | `sticky: Sticky` | 同一 id は冪等。200 枚 (`MAX_STICKIES`) 以上のときは無視 |
 | `moveSticky` | `id, x, y` | 存在しない id は無視 |
 | `editSticky` | `id, text` | text は 80 字まで (`STICKY_TEXT_MAX`) |

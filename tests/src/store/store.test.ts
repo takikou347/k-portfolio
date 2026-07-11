@@ -131,3 +131,38 @@ describe('eraseArea と取り消し (myStrokeIds の断片追従)', () => {
     expect(useStore.getState().myStrokeIds).toEqual([frontId, rearId, 'far']);
   });
 });
+
+describe('wipeLeftOf と取り消し (myStrokeIds の断片追従)', () => {
+  const myStroke: Stroke = {
+    id: 'w1',
+    color: 'white',
+    points: Array.from({ length: 11 }, (_, i) => ({ x: i * 10, y: 0 })),
+  };
+  let conn: ReturnType<typeof fakeConnection>;
+
+  beforeEach(() => {
+    conn = fakeConnection();
+    useStore.setState({
+      board: { strokes: [myStroke], stickies: [] },
+      myStrokeIds: ['w1'],
+      full: false,
+      deleted: false,
+      status: 'open',
+      connection: conn,
+    });
+  });
+
+  it('自分の wipeLeftOf で切られた自分のストロークは、残存断片が取り消し候補に入れ替わる', () => {
+    useStore.getState().applyLocalOp({ type: 'wipeLeftOf', x: 25 });
+    const boardIds = useStore.getState().board.strokes.map((s) => s.id);
+    expect(boardIds).toHaveLength(1);
+    expect(useStore.getState().myStrokeIds).toEqual(boardIds);
+    expect(boardIds).not.toContain('w1');
+  });
+
+  it('他人の wipeLeftOf (サーバー経由) で全消しされたら myStrokeIds も空になる', () => {
+    useStore.getState().handleServerMessage({ type: 'op', op: { type: 'wipeLeftOf', x: 9999 } });
+    expect(useStore.getState().board.strokes).toHaveLength(0);
+    expect(useStore.getState().myStrokeIds).toEqual([]);
+  });
+});
