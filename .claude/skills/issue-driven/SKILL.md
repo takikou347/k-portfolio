@@ -9,6 +9,11 @@ description: Git 操作の標準手順。修正・機能追加・リファクタ
 ブランチ構成: **main = デプロイ (リリース PR のみ) / develop = 統合 (日々の PR の base)**。
 main と develop へは直 push しない・削除しない。
 
+> **リモートセッション (Claude Code on the Web) の単一ブランチ制約**: セッションの作業
+> ブランチが 1 本に固定されている場合も 1 Issue = 1 PR を守る — PR を 1 件ずつ直列に出し、
+> merge されたら同名ブランチを最新の develop から `git checkout -B` で切り直して次の Issue に
+> 着手する (merge 済み履歴しか含まないので安全)。複数 Issue を 1 つの PR に束ねない。
+
 ## 日々の開発手順
 
 1. **Issue の確認/作成**: 対応する Issue が既にあるか確認する。なければ着手前に作成する。
@@ -31,7 +36,11 @@ main と develop へは直 push しない・削除しない。
 1. **リリース PR を作成**: base = main、head = develop。タイトルは `release: YYYY-MM-DD` 形式
 2. **本文にリリースノートを書く**: 含まれる Issue / PR を列挙し、ユーザー影響のある変更を先頭に
 3. merge は人間の担当。merge 後、deploy.yml のデプロイは **production 環境の承認待ち**になるので、
-   Actions の「Review deployments」から人間が承認して本番デプロイを実行する
+   Actions の「Review deployments」から人間が承認して本番デプロイを実行する。
+   **リリースは merge で終わりではなく、この承認とデプロイ成功の確認までがリリース** —
+   Claude がリリースを見届ける場合はデプロイ run の成否まで追跡して報告する。
+   承認されないまま残った古い run は、次のリリース merge で自動キャンセルされる
+   (`deploy.yml` の `cancel-in-progress: true`、#66)
 4. **merge 後も develop は削除しない**。merge 後に GitHub Release を作成すると
    `.github/release.yml` のカテゴリ設定でリリースノートを自動生成できる
 
