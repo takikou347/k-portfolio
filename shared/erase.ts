@@ -82,6 +82,39 @@ export function fragmentId(parentId: string, start: number): string {
 }
 
 /**
+ * 拭き取りライン (x = line) より左にある点を取り除き、残った区間の断片を返す
+ * (wipeLeftOf op の中核ロジック)。触れていなければ null。
+ * 断片 id は eraseStrokePath と同じ規則で決定的に生成する。
+ */
+export function wipeStrokeLeftOf(stroke: Stroke, line: number): Stroke[] | null {
+  const pts = stroke.points;
+  let minX = Infinity;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+  }
+  if (minX >= line) return null; // ラインより左に点がない = 触れていない
+
+  const runs: { start: number; points: Point[] }[] = [];
+  let run: { start: number; points: Point[] } | null = null;
+  for (let i = 0; i < pts.length; i++) {
+    if (pts[i].x < line) {
+      run = null;
+      continue;
+    }
+    if (run === null) {
+      run = { start: i, points: [] };
+      runs.push(run);
+    }
+    run.points.push(pts[i]);
+  }
+  return runs.map((r) => ({
+    id: fragmentId(stroke.id, r.start),
+    color: stroke.color,
+    points: r.points,
+  }));
+}
+
+/**
  * ストロークから軌跡に触れた部分を取り除き、残った区間の断片を返す。
  * 触れていなければ null (呼び出し側は元の参照を使い続ける)。
  * 変更が生じた場合、断片には常に新しい決定的 id を振る (元 id は盤面から消える)

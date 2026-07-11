@@ -268,6 +268,46 @@ describe('BoardDO: presence とライブカーソル', () => {
     expect(await a.next()).toMatchObject({ type: 'cursor', x: 3, y: 3 });
   });
 
+  it('wipeLeftOf op で x より左だけが消え、断片が SQLite に永続化される', async () => {
+    const line: Stroke = {
+      id: 'wipe-line',
+      color: 'white',
+      points: Array.from({ length: 11 }, (_, i) => ({ x: i * 10, y: 0 })),
+    };
+
+    const a = await connect('wipe-board', 'はなこ');
+    await a.next(); // snapshot
+    const b = await connect('wipe-board', 'たろう', 'blue');
+    await b.next(); // snapshot
+    await a.next(); // join presence
+
+    a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addStroke', stroke: line } }));
+    await b.next();
+
+    // B の拭き取りが A にブロードキャストされる
+    const wipe: Op = { type: 'wipeLeftOf', x: 25 };
+    b.ws.send(JSON.stringify({ type: 'op', op: wipe }));
+    expect(await a.next()).toEqual({ type: 'op', op: wipe });
+
+    // 共有 reducer と同じ結果が永続化され、後から入る C の snapshot に反映される
+    let expected = emptyBoardState();
+    expected = applyOp(expected, { type: 'addStroke', stroke: line });
+    expected = applyOp(expected, wipe);
+    const c = await connect('wipe-board', 'じろう', 'yellow');
+    const snapC = await c.next();
+    expect(snapC.type).toBe('snapshot');
+    if (snapC.type !== 'snapshot') return;
+    expect(snapC.state.strokes).toEqual(expected.strokes);
+    expect(snapC.state.strokes[0].points).toEqual(line.points.slice(3));
+    await a.next(); // C の join presence を消費
+    await b.next();
+
+    // 何にも触れない wipeLeftOf は無効 op としてブロードキャストされない
+    b.ws.send(JSON.stringify({ type: 'op', op: { type: 'wipeLeftOf', x: -9999 } }));
+    b.ws.send(JSON.stringify({ type: 'cursor', x: 8, y: 8 }));
+    expect(await a.next()).toMatchObject({ type: 'cursor', x: 8, y: 8 });
+  });
+
   it('付箋の作成・移動・編集が同期され、SQLite に永続化される', async () => {
     const a = await connect('sticky-board', 'はなこ');
     await a.next(); // snapshot

@@ -97,6 +97,8 @@ export const opSchema = z.discriminatedUnion('type', [
   }),
   // 全消し: 盤面のチョークストロークをすべて消す (付箋は対象外)
   z.object({ type: z.literal('clearStrokes') }),
+  // 左から拭き取り: x (ボード座標) より左のチョークを消す。スライダー全消しが使う
+  z.object({ type: z.literal('wipeLeftOf'), x: coordSchema }),
   z.object({ type: z.literal('addSticky'), sticky: stickySchema }),
   z.object({ type: z.literal('moveSticky'), id: idSchema, x: coordSchema, y: coordSchema }),
   z.object({ type: z.literal('editSticky'), id: idSchema, text: stickyTextSchema }),
