@@ -81,8 +81,9 @@ export class BoardDO extends DurableObject<Env> {
   // ---- 接続 ----
 
   override async fetch(request: Request): Promise<Response> {
-    // メタ操作 (/api/boards/:id): 実在確認と削除。Worker が同じ DO へルーティングしてくる
-    if (new URL(request.url).pathname.startsWith('/api/')) {
+    // メタ操作 (/api/boards/:id): 実在確認と削除。Worker が同じ DO へルーティングしてくる。
+    // prefix はルーター (BOARD_API_RE) の実パスに合わせ、将来の別 /api/ 系を誤って吸わない
+    if (new URL(request.url).pathname.startsWith('/api/boards/')) {
       if (request.method === 'GET') {
         return Response.json({ exists: this.exists() });
       }
