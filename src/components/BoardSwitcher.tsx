@@ -1,7 +1,13 @@
-import { Plus, Presentation } from 'lucide-react';
+import { Plus, Presentation, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { isBoardId, randomBoardId } from '../lib/board-id';
-import { boardExists, loadVisitedBoards, recordBoardVisit } from '../lib/boards';
+import {
+  boardExists,
+  deleteBoard,
+  loadVisitedBoards,
+  recordBoardVisit,
+  removeVisitedBoard,
+} from '../lib/boards';
 
 type Props = { boardId: string };
 
@@ -19,6 +25,37 @@ export default function BoardSwitcher({ boardId }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const go = (id: string) => window.location.assign(`/b/${id}`);
+
+  // 黒板の削除は全員の落書きが消えるため、行ごとの 2 度押し確認を要求する
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (deleteTimerRef.current !== null) clearTimeout(deleteTimerRef.current);
+    },
+    [],
+  );
+  const onDelete = async (id: string) => {
+    if (deleteTimerRef.current !== null) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+    if (confirmDelete !== id) {
+      setConfirmDelete(id);
+      setError(null);
+      deleteTimerRef.current = setTimeout(() => {
+        deleteTimerRef.current = null;
+        setConfirmDelete(null);
+      }, 3000);
+      return;
+    }
+    setConfirmDelete(null);
+    if (await deleteBoard(id)) {
+      setBoards(removeVisitedBoard(id));
+    } else {
+      setError('削除できませんでした');
+    }
+  };
 
   /** 「つくる」: 同名の黒板が実在したらエラー。確認できない場合はベストエフォートで続行 */
   const onCreate = async () => {
@@ -110,6 +147,18 @@ export default function BoardSwitcher({ boardId }: Props) {
                 {visited.map((b) => (
                   <li key={b}>
                     <a href={`/b/${b}`}>{b}</a>
+                    <button
+                      type="button"
+                      className={`board-del-btn${confirmDelete === b ? ' confirm' : ''}`}
+                      aria-label={
+                        confirmDelete === b
+                          ? `もういちど押すと黒板「${b}」をデータごと削除します`
+                          : `黒板「${b}」を削除`
+                      }
+                      onClick={() => void onDelete(b)}
+                    >
+                      <Trash2 size={13} aria-hidden />
+                    </button>
                   </li>
                 ))}
               </ul>

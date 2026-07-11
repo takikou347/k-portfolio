@@ -27,9 +27,10 @@ export default function Tray({ onUndo, canUndo = false, onReact }: Props) {
   const setChalkColor = useStore((s) => s.setChalkColor);
   const fullBoard = useStore((s) => s.full);
   const status = useStore((s) => s.status);
+  const deleted = useStore((s) => s.deleted);
   const hasStrokes = useStore((s) => s.board.strokes.length > 0);
-  // 満席 (読み取り専用) と再接続中は操作を受け付けない
-  const full = fullBoard || status !== 'open';
+  // 満席 (読み取り専用)・削除済み・再接続中は操作を受け付けない
+  const full = fullBoard || deleted || status !== 'open';
 
   // 「ぜんぶ消す」は全員の落書きが消えるため、確認の 2 度押しを要求する
   const [confirmClear, setConfirmClear] = useState(false);

@@ -15,7 +15,7 @@
         ↕ WebSocket  /ws/:boardId
 [Cloudflare Worker] (worker/index.ts)
   ├─ /ws/:boardId         → env.BOARD.getByName(boardId) で DO へルーティング
-  ├─ /api/boards/:boardId → 同じ DO へ (GET: 実在確認 { exists }。GET 以外は 405)
+  ├─ /api/boards/:boardId → 同じ DO へ (GET: 実在確認 / DELETE: 黒板削除。他は 405)
   └─ それ以外             → static assets (dist/ の SPA、SPA fallback あり)
 [Durable Object] BoardDO (worker/board-do.ts)
   ├─ WebSocket Hibernation API で接続維持
@@ -131,6 +131,9 @@ CREATE TABLE IF NOT EXISTS meta (
   あり or 接続中の誰かあり」で判定する。`used` は初回の WebSocket 参加受け入れ時に記録。
   meta 導入前に作られた旧黒板はフラグを持たないため、後段のフォールバックが後方互換になる。
   クライアントは黒板の名前指定作成時の同名バリデーション (ベストエフォート) に使う
+- **黒板の削除** (`DELETE /api/boards/:id` → 204): strokes / stickies / meta の全行を消す
+  (テーブルは残し、スキーマ再作成を不要にする)。接続中の全 WebSocket を close code 4004
+  (`CLOSE_CODE_DELETED`) で切断し、クライアントは再接続せず削除バナーを表示する
 
 ## クライアントの状態管理
 

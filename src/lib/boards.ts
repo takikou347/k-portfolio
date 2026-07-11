@@ -52,3 +52,24 @@ export function recordBoardVisit(id: string): string[] {
   }
   return next;
 }
+
+/** 黒板を訪問履歴から外し、保存後のリストを返す */
+export function removeVisitedBoard(id: string): string[] {
+  const next = loadVisitedBoards().filter((b) => b !== id);
+  try {
+    window.localStorage.setItem(BOARDS_KEY, JSON.stringify(next));
+  } catch {
+    // 保存できなくても続行する
+  }
+  return next;
+}
+
+/** 黒板をサーバーからデータごと削除する。成功したら true */
+export async function deleteBoard(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/boards/${id}`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

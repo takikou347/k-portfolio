@@ -1,4 +1,4 @@
-import { CLOSE_CODE_FULL, CURSOR_THROTTLE_MS } from '../../shared/limits';
+import { CLOSE_CODE_DELETED, CLOSE_CODE_FULL, CURSOR_THROTTLE_MS } from '../../shared/limits';
 import {
   serverMessageSchema,
   type ClientMessage,
@@ -13,6 +13,8 @@ type Handlers = {
   onStatus: (status: ConnectionStatus) => void;
   /** スペクテータ上限超過で接続拒否されたとき (再接続は行わない) */
   onFull: () => void;
+  /** 黒板が削除されたとき (再接続は行わない) */
+  onDeleted: () => void;
 };
 
 /**
@@ -64,6 +66,12 @@ export class BoardConnection {
         // 満席で接続拒否。再接続してもすぐ拒否されるだけなのでループを止める
         this.#closed = true;
         this.handlers.onFull();
+        return;
+      }
+      if (e.code === CLOSE_CODE_DELETED) {
+        // 黒板が削除された。再接続すると空の黒板を作り直してしまうので止める
+        this.#closed = true;
+        this.handlers.onDeleted();
         return;
       }
       this.#scheduleReconnect();

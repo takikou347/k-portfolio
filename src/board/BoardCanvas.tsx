@@ -272,8 +272,9 @@ export default function BoardCanvas() {
   const onPointerDown = (e: React.PointerEvent) => {
     const store = useStore.getState();
     if (!e.isPrimary || e.button !== 0) return;
-    // 満席 (読み取り専用) と再接続中は新しい操作を始めない (op が無音で消えるのを防ぐ)
-    if (store.gestureActive || store.spacePan || store.full || store.status !== 'open') return;
+    // 満席 (読み取り専用)・削除済み・再接続中は新しい操作を始めない (op が無音で消えるのを防ぐ)
+    if (store.gestureActive || store.spacePan || store.full || store.deleted) return;
+    if (store.status !== 'open') return;
     const p = boardPoint(e);
     if (store.tool === 'chalk') {
       canvasRef.current?.setPointerCapture(e.pointerId);

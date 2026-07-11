@@ -1,6 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
-import { CLOSE_CODE_FULL, MAX_CONNECTIONS, MAX_SPECTATORS, MAX_STROKES } from '../shared/limits';
-import { applyOp, type BoardState } from '../shared/ops';
+import {
+  CLOSE_CODE_DELETED,
+  CLOSE_CODE_FULL,
+  MAX_CONNECTIONS,
+  MAX_SPECTATORS,
+  MAX_STROKES,
+} from '../shared/limits';
+import { applyOp, emptyBoardState, type BoardState } from '../shared/ops';
 import {
   clientMessageSchema,
   joinSchema,
@@ -75,12 +81,17 @@ export class BoardDO extends DurableObject<Env> {
   // ---- 接続 ----
 
   override async fetch(request: Request): Promise<Response> {
-    // メタ操作 (/api/boards/:id): 実在確認。Worker が同じ DO へルーティングしてくる
-    if (new URL(request.url).pathname.startsWith('/api/')) {
-      if (request.method !== 'GET') {
-        return new Response('method not allowed', { status: 405 });
+    // メタ操作 (/api/boards/:id): 実在確認と削除。Worker が同じ DO へルーティングしてくる。
+    // prefix はルーター (BOARD_API_RE) の実パスに合わせ、将来の別 /api/ 系を誤って吸わない
+    if (new URL(request.url).pathname.startsWith('/api/boards/')) {
+      if (request.method === 'GET') {
+        return Response.json({ exists: this.exists() });
       }
-      return Response.json({ exists: this.exists() });
+      if (request.method === 'DELETE') {
+        this.deleteBoard();
+        return new Response(null, { status: 204 });
+      }
+      return new Response('method not allowed', { status: 405 });
     }
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
       return new Response('Expected WebSocket', { status: 426 });
@@ -194,6 +205,26 @@ export class BoardDO extends DurableObject<Env> {
     }
     this.#board = { strokes, stickies };
     return this.#board;
+  }
+
+  /**
+   * 黒板をデータごと削除する。テーブルは残して全行を消す (スキーマ再作成を不要にする)。
+   * 閲覧中の接続は「削除された」専用コードで切り、クライアント側で再接続を止めさせる。
+   * meta も消えるため exists() が false に戻り、同じ名前で作り直せる。
+   */
+  deleteBoard(): void {
+    const sql = this.ctx.storage.sql;
+    sql.exec('DELETE FROM strokes');
+    sql.exec('DELETE FROM stickies');
+    sql.exec('DELETE FROM meta');
+    this.#board = emptyBoardState();
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        ws.close(CLOSE_CODE_DELETED, 'board deleted');
+      } catch {
+        // すでに閉じている接続は無視
+      }
+    }
   }
 
   /**

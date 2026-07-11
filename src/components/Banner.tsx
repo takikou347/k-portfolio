@@ -8,6 +8,7 @@ import { useStore } from '../store/store';
 export default function Banner() {
   const status = useStore((s) => s.status);
   const full = useStore((s) => s.full);
+  const deleted = useStore((s) => s.deleted);
   const [recovered, setRecovered] = useState(false);
   const wasReconnecting = useRef(false);
 
@@ -25,6 +26,13 @@ export default function Banner() {
     }
   }, [status]);
 
+  if (deleted) {
+    return (
+      <p className="banner" role="status">
+        この黒板は削除されました。左上から別の黒板へどうぞ
+      </p>
+    );
+  }
   if (full) {
     return (
       <p className="banner" role="status">
