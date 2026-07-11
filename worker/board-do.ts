@@ -50,12 +50,38 @@ export class BoardDO extends DurableObject<Env> {
         id   TEXT PRIMARY KEY,
         data TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS meta (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
+  }
+
+  /**
+   * この黒板が「使われている」か。参加実績 (meta の used フラグ)、盤面データ、
+   * 接続中の誰か、のいずれかがあれば真。meta 導入前に作られた旧黒板は
+   * フラグを持たないため、データと接続でのフォールバック判定が後方互換になる。
+   */
+  exists(): boolean {
+    const used =
+      this.ctx.storage.sql.exec("SELECT 1 AS x FROM meta WHERE key = 'used' LIMIT 1").toArray()
+        .length > 0;
+    if (used) return true;
+    const board = this.board();
+    if (board.strokes.length > 0 || board.stickies.length > 0) return true;
+    return this.ctx.getWebSockets().length > 0;
   }
 
   // ---- 接続 ----
 
   override async fetch(request: Request): Promise<Response> {
+    // メタ操作 (/api/boards/:id): 実在確認。Worker が同じ DO へルーティングしてくる
+    if (new URL(request.url).pathname.startsWith('/api/')) {
+      if (request.method !== 'GET') {
+        return new Response('method not allowed', { status: 405 });
+      }
+      return Response.json({ exists: this.exists() });
+    }
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
       return new Response('Expected WebSocket', { status: 426 });
     }
@@ -85,6 +111,8 @@ export class BoardDO extends DurableObject<Env> {
     const server = pair[1];
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment(session);
+    // 一度でも参加された黒板は「使用済み」として記録する (同名作成のバリデーションに使う)
+    this.ctx.storage.sql.exec("INSERT OR IGNORE INTO meta (key, value) VALUES ('used', '1')");
 
     const users = spectator
       ? members

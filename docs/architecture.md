@@ -14,8 +14,9 @@
   └─ BoardConnection (src/ws/connection.ts) — WebSocket 接続・再接続
         ↕ WebSocket  /ws/:boardId
 [Cloudflare Worker] (worker/index.ts)
-  ├─ /ws/:boardId → env.BOARD.getByName(boardId) で DO へルーティング
-  └─ それ以外     → static assets (dist/ の SPA、SPA fallback あり)
+  ├─ /ws/:boardId         → env.BOARD.getByName(boardId) で DO へルーティング
+  ├─ /api/boards/:boardId → 同じ DO へ (GET: 実在確認 { exists }。GET 以外は 405)
+  └─ それ以外             → static assets (dist/ の SPA、SPA fallback あり)
 [Durable Object] BoardDO (worker/board-do.ts)
   ├─ WebSocket Hibernation API で接続維持
   ├─ SQLite ストレージに盤面 (strokes / stickies) を永続化
@@ -110,6 +111,10 @@ CREATE TABLE IF NOT EXISTS stickies (
   id   TEXT PRIMARY KEY,
   data TEXT NOT NULL                       -- Sticky の JSON
 );
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,                  -- used: 一度でも参加された黒板の印
+  value TEXT NOT NULL
+);
 ```
 
 - ストロークが 2000 本 (`MAX_STROKES`) を超えたら `seq` の古い順に DELETE
@@ -122,6 +127,10 @@ CREATE TABLE IF NOT EXISTS stickies (
   SQLite への書き込みもブロードキャストも起きない
 - 付箋の読み出しは `stickySchema.safeParse` を通す — `w` / `h` / `fontSize` を持たない
   旧データにデフォルト値を補完する後方互換のため。壊れた行は黙って捨てる
+- **実在確認** (`GET /api/boards/:id` → `{ exists }`): 「meta の `used` フラグ or 盤面データ
+  あり or 接続中の誰かあり」で判定する。`used` は初回の WebSocket 参加受け入れ時に記録。
+  meta 導入前に作られた旧黒板はフラグを持たないため、後段のフォールバックが後方互換になる。
+  クライアントは黒板の名前指定作成時の同名バリデーション (ベストエフォート) に使う
 
 ## クライアントの状態管理
 

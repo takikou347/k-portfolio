@@ -44,6 +44,41 @@ describe('Worker ルーティング', () => {
     expect(res.status).toBe(426);
   });
 
+  it('GET /api/boards/:id は未使用の黒板で exists=false、参加後は true を返す (切断後も維持)', async () => {
+    const res = await SELF.fetch('https://example.com/api/boards/exists-board');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ exists: false });
+
+    const a = await connect('exists-board', 'はなこ');
+    await a.next(); // snapshot
+    const joined = await SELF.fetch('https://example.com/api/boards/exists-board');
+    expect(await joined.json()).toEqual({ exists: true });
+
+    // 全員が退室しても「使用済み」は残る (meta フラグの永続化)
+    a.ws.close(1000);
+    const after = await SELF.fetch('https://example.com/api/boards/exists-board');
+    expect(await after.json()).toEqual({ exists: true });
+  });
+
+  it('meta フラグの無い旧黒板でも、盤面データがあれば exists=true (後方互換)', async () => {
+    const stub = env.BOARD.getByName('legacy-exists-board');
+    await runInDurableObject(stub, async (instance: BoardDO) => {
+      instance.applyAndPersist({
+        type: 'addStroke',
+        stroke: { id: 'old', color: 'white', points: [{ x: 0, y: 0 }] },
+      });
+    });
+    const res = await SELF.fetch('https://example.com/api/boards/legacy-exists-board');
+    expect(await res.json()).toEqual({ exists: true });
+  });
+
+  it('/api/boards/:id への GET 以外のメソッドは 405 を返す', async () => {
+    const res = await SELF.fetch('https://example.com/api/boards/method-board', {
+      method: 'POST',
+    });
+    expect(res.status).toBe(405);
+  });
+
   it('不正な入室情報 (名前 1 文字) は 400 で拒否する', async () => {
     const res = await SELF.fetch('https://example.com/ws/main?name=%E3%81%82&color=red', {
       headers: { Upgrade: 'websocket' },
