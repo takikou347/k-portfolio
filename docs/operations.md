@@ -67,6 +67,30 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
    > **ブランチ保護 Ruleset** が遮断し、本番反映は **production 環境のデプロイ承認** が遮断する
    > (仮に自動化がリリース PR を merge してしまっても、人間が承認するまで本番には出ない)。
 
+## 外部入力からの保護 (public リポジトリの攻撃面)
+
+public リポジトリでは誰でも Issue 起票・フォーク PR 作成ができる。Claude 系ワークフローは
+書き込み権限とサブスクリプショントークンを持つため、信頼できない入力が届く経路を
+決定論的に (LLM の判断に頼らず) 遮断している:
+
+- **フォーク PR** — `claude-review.yml` は `pull_request_target` ではなく `pull_request`
+  トリガーを使う。フォークからの PR には secrets が渡らないため、トークン窃取も
+  外部者によるレビュー起動 (利用枠の浪費) も構造的に不可能
+- **@claude メンション** (`claude.yml`) — 起動者を author_association
+  (OWNER / MEMBER / COLLABORATOR) で限定し、フォーク PR 上のイベントは除外する
+- **Issue トリアージ** (`claude-issue-triage.yml`) — 同じ author_association ゲートで
+  外部者の起票では起動しない (#78)
+- **日次バッチ** (`claude-auto-resolve.yml`) — Claude 起動前のシェルステップが起票者の
+  author_association を検査し、通過した Issue 番号の許可リストをプロンプトに注入する。
+  リスト外の Issue は本文に何が書かれていても処理されない (#78)。
+  ラベル方式の許可リストは採用しない — `issues: write` を持つトリアージが
+  プロンプトインジェクションでラベルを付けさせられると迂回できてしまうため
+- **CI 自動修復** (`claude-autofix-ci.yml`) — `head_repository` が本体リポジトリと一致する
+  場合のみ起動 (pwn request 対策) し、対象ブランチ名も正規表現で限定する
+
+これらをすり抜けた場合の最後の砦は前節の通り: main / develop への直 push はブランチ保護
+Ruleset が、本番反映は production 環境のデプロイ承認 (人間) が遮断する。
+
 ## 課金リスクについて
 
 **Cloudflare 無料プランは fail-closed**: 上限 (Workers 10万リクエスト/日など) を超えると
