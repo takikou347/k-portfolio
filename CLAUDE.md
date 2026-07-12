@@ -48,6 +48,9 @@
 - CI 側のモデルも用途別に固定済み: triage / health / 週次レポート = haiku、
   PR レビュー / 日次バッチ実装 / @claude 応答 / CI 自動修復 = sonnet。ワークフローの `--model` を外さない。
   リリース PR 下書き (release-draft.yml) は LLM 不使用の決定論的スクリプト
+- 自動 PR レビュー (claude-review.yml) は **CI green になった push だけ**を対象に実行される
+  (workflow_run トリガー + レビュー済み SHA マーカー、#81)。push 回数 = レビュー回数なので、
+  push を細切れにしない (下記 Git 運用の「push はまとめて 1 回」)
 - ダイナミックワークフローは明示的なオプトイン (「ワークフローで」/ ultracode) のときだけ使う。
   多数のエージェントを生みトークン消費が大きい — まず小さいスコープで試してから広げる
 - 保存済みワークフロー `/exhaustive-review` — スライス完了時・push 前の多角レビュー
@@ -67,6 +70,8 @@
   PR 本文に `Closes #<番号>` を必ず書く
 - コミットは Conventional Commits + 末尾 `(#<Issue番号>)` (hooks が決定論的に検査)。
   1 コミット = 1 論理変更
+- **push はまとめて 1 回**。push のたびに CI + 自動レビュー (sonnet) が走るため、
+  コミットごとに push しない。PR 作成時と、レビュー指摘をすべて解消したときにまとめて push する
 - **merge の担当**: develop 向け PR は CI green + レビュー [must] ゼロを確認して Claude が merge してよい。
   **develop → main のリリース PR の merge は必ず人間**。さらに本番デプロイは GitHub Environments
   (production) の人間承認を経て実行される — これが決定論的な最終ゲート。
