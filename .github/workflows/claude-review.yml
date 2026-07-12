@@ -63,7 +63,8 @@ jobs:
           fi
           # 同一コミットをレビュー済みなら skip (ラベル操作や再実行で CI が複数回 green になるため)
           if gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate \
-            --jq '.[].body' | grep -qF "[claude-review-sha] ${HEAD_SHA}"; then
+            --jq '.[] | select(.user.login == "github-actions[bot]") | .body' \
+            | grep -qF "[claude-review-sha] ${HEAD_SHA}"; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::コミット $HEAD_SHA はレビュー済みのためスキップ"
             exit 0

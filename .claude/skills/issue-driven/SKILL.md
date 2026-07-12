@@ -25,8 +25,8 @@ main と develop へは直 push しない・削除しない。
 4. **コミット**: Conventional Commits 形式 `<type>: <説明> (#<Issue番号>)`。
    1 コミット = 1 論理変更。フォーマット差分や無関係な修正を混ぜない
 5. **push と PR 作成**: 検証 3 点セット (`pnpm typecheck && pnpm lint && pnpm test`) が
-   通ってから**まとめて 1 回 push** する — コミットごとに push しない (push のたびに CI と
-   自動レビューが走り、トークンと Actions 時間を消費する、#81)。PR の **base は develop**。
+   通ってから**まとめて 1 回 push** する — コミットごとに push しない (push のたびに CI が走り、
+   CI green なら自動レビューも走って、トークンと Actions 時間を消費する、#81)。PR の **base は develop**。
    対象 Issue 1 件のみを `Closes #<番号>` で紐付け、本文に変更概要と検証 3 点セットの結果を貼る
 6. **レビュー対応と merge**: code-reviewer エージェントと CI の [must] 指摘をすべて解消する。
    レビュー対応の修正も指摘 1 件ごとに push せず、すべて解消してからまとめて 1 回 push する。

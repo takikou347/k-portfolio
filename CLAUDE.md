@@ -70,7 +70,7 @@
   PR 本文に `Closes #<番号>` を必ず書く
 - コミットは Conventional Commits + 末尾 `(#<Issue番号>)` (hooks が決定論的に検査)。
   1 コミット = 1 論理変更
-- **push はまとめて 1 回**。push のたびに CI + 自動レビュー (sonnet) が走るため、
+- **push はまとめて 1 回**。push のたびに CI が走り、green になれば自動レビュー (sonnet) も走るため、
   コミットごとに push しない。PR 作成時と、レビュー指摘をすべて解消したときにまとめて push する
 - **merge の担当**: develop 向け PR は CI green + レビュー [must] ゼロを確認して Claude が merge してよい。
   **develop → main のリリース PR の merge は必ず人間**。さらに本番デプロイは GitHub Environments
