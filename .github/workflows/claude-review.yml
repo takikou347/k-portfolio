@@ -1,15 +1,30 @@
 name: Claude PR Review
 
+# トリガーは pull_request: synchronize ではなく CI 完了 (workflow_run)。
+# push のたびにフルレビューすると、CI が落ちた push (どうせ修正される) まで
+# レビューしてトークンを浪費するため、CI green になった時点の内容だけをレビューする (#81)。
+# 規模の大小によらず、CI green の PR は毎回レビュー対象 (間引きはしない)。
+# 同一コミットの重複レビューだけは、コメントに埋め込むマーカー
+# ([claude-review-sha]) で決定論的に skip する (ラベル付け外しでも CI が再実行されるため)。
 on:
-  pull_request:
-    types: [opened, synchronize]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 jobs:
   review:
+    # フォーク PR の除外 (pwn request 対策): workflow_run は base リポジトリの権限と
+    # secrets で走るため、head_repository の一致検査が必須 (claude-autofix-ci.yml と同じガード)。
+    # 旧 pull_request トリガーでは「フォークに secrets が渡らない」ことで守れていたが、
+    # このトリガーでは条件式で決定論的に遮断する (→ docs/operations.md)
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -17,18 +32,48 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - name: Check secrets
+      - name: Check secrets / PR 特定 / レビュー済み判定
         id: gate
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          set -euo pipefail
           if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Secrets 未設定のためスキップ (docs/operations.md 参照)"
+            exit 0
           fi
+          # workflow_run イベントには PR 番号が含まれないため head ブランチから引く
+          PR_JSON=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+            --json number,baseRefName,headRefOid --jq '.[0] // empty')
+          if [ -z "$PR_JSON" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::オープン PR が見つからないためスキップ ($BRANCH)"
+            exit 0
+          fi
+          PR=$(jq -r .number <<<"$PR_JSON")
+          # CI 完了を待つ間に新しい push があった場合は skip (最新 push の CI 完了時にレビューする)
+          if [ "$(jq -r .headRefOid <<<"$PR_JSON")" != "$HEAD_SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::PR #$PR の head が $HEAD_SHA から進んでいるためスキップ"
+            exit 0
+          fi
+          # 同一コミットをレビュー済みなら skip (ラベル操作や再実行で CI が複数回 green になるため)
+          if gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate \
+            --jq '.[].body' | grep -qF "[claude-review-sha] ${HEAD_SHA}"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::コミット $HEAD_SHA はレビュー済みのためスキップ"
+            exit 0
+          fi
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+          echo "base=$(jq -r .baseRefName <<<"$PR_JSON")" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
         id: review
@@ -36,7 +81,9 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            この PR をレビューしてください。.claude/agents/code-reviewer.md の観点と出力形式に従い、
+            PR #${{ steps.gate.outputs.pr }} をレビューしてください。
+            変更差分は `git diff origin/${{ steps.gate.outputs.base }}...HEAD` で取得できます。
+            .claude/agents/code-reviewer.md の観点と出力形式に従い、
             .claude/rules/ の規約違反・セキュリティ・型・テスト欠落を [must] / [nits] で指摘してください。
             問題がなければ「must 指摘なし」とだけ返してください。
             レビュー結果は PR にコメント投稿せず、最終応答のテキストとして返すこと
@@ -53,7 +100,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EXEC_FILE: ${{ steps.review.outputs.execution_file }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           FILE="${EXEC_FILE:-$RUNNER_TEMP/claude-execution-output.json}"
           if [ ! -f "$FILE" ]; then
@@ -73,7 +121,8 @@ jobs:
           fi
           # GitHub のコメント本文上限 (65536 字) を超えると 422 で失敗するため切り詰める
           BODY="${BODY:0:60000}"
-          printf '## 自動レビュー (claude-review)\n\n%s\n' "$BODY" \
+          # 末尾のマーカーは gate ステップの「レビュー済み判定」が参照する (切り詰め後に付与して欠落を防ぐ)
+          printf '## 自動レビュー (claude-review)\n\n%s\n\n<sub>[claude-review-sha] %s</sub>\n' "$BODY" "$HEAD_SHA" \
             | jq -Rs '{body: .}' \
             | gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --input - >/dev/null
           echo "レビュー結果を PR #${PR_NUMBER} に投稿しました"
