@@ -34,6 +34,15 @@ jobs:
           gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?status=waiting&per_page=100" \
             --jq ".workflow_runs[] | select(.id != ${RUN_ID} and .run_number < ${RUN_NUMBER}) | .id" \
           | while read -r id; do
+              # TOCTOU 対策: 一覧取得後に人間が承認した run (in_progress へ遷移) を
+              # 巻き込まないよう、cancel 直前に状態を個別再確認する。再確認〜cancel 間の
+              # ごく短い残余レースは許容する — 万一実行中を止めても、その状況では必ず
+              # より新しい run が控えており、その承認・デプロイで最新版に収束する
+              status=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}" --jq .status || echo "unknown")
+              if [ "$status" != "waiting" ]; then
+                echo "run ${id} は ${status} に遷移していたためスキップ (waiting のみキャンセル対象)"
+                continue
+              fi
               echo "古い承認待ち run をキャンセル: ${id}"
               gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/cancel" \
                 || echo "::warning::run ${id} のキャンセルに失敗 (すでに終了している可能性)"
