@@ -9,6 +9,9 @@ export const MAX_SPECTATORS = 20;
 /** スペクテータ上限超過による接続拒否の WebSocket close code (再接続を止める合図) */
 export const CLOSE_CODE_FULL = 4003;
 
+/** 黒板が削除されたことによる切断の WebSocket close code (再接続を止める合図) */
+export const CLOSE_CODE_DELETED = 4004;
+
 /** 接続ごとの op 受信レート上限 (件/秒)。超過分は黙って破棄 */
 export const OPS_PER_SECOND = 20;
 
@@ -76,3 +79,10 @@ export const STROKE_BATCH_MS = 16;
 /** ズーム倍率の範囲 */
 export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 2;
+
+/**
+ * /api/boards (実在確認などのメタ操作) の IP ごとの受信レート上限 (10 秒窓)。
+ * 実在しない名前を撃ちまくって DO を大量起動させる無料枠攻撃の防波堤。超過は 429
+ */
+export const BOARD_API_PER_WINDOW = 20;
+export const BOARD_API_WINDOW_MS = 10_000;

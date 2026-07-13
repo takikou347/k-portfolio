@@ -158,18 +158,6 @@
   background: var(--color-chalk-yellow);
 }
 
-/* ぜんぶ消す: 2 度押し確認中はマグネット赤で「全員の落書きが消える」ことを警告する */
-.tool-btn.confirm {
-  color: var(--color-chalk-white);
-  background: var(--color-magnet);
-  outline: 2px solid var(--color-magnet);
-  outline-offset: 2px;
-}
-
-.tool-btn.confirm:hover {
-  background: var(--color-magnet);
-}
-
 .tool-btn:disabled {
   opacity: 0.45;
   cursor: default;
@@ -221,6 +209,88 @@
 
 .emoji-btn:hover {
   transform: scale(1.3);
+}
+
+/* ===== ぜんぶ消す: スライド式の拭き取りバー (トレイの上) ===== */
+.wipe-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 70px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 12px;
+}
+
+.wipe-hint {
+  font-family: var(--font-hand);
+  font-size: 13px;
+  color: var(--color-chalk-white);
+  opacity: 0.8;
+  margin: 0;
+  white-space: nowrap;
+  flex: none;
+}
+
+.wipe-track {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* 拭き取った割合。チョーク黄で「ここまで消えた」を示す */
+.wipe-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 7px;
+  background: var(--color-chalk-yellow);
+  opacity: 0.7;
+}
+
+/* ハンドルはミニ黒板消し (フェルト + 木) の見た目 */
+.wipe-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: linear-gradient(to bottom, var(--color-frame) 0 40%, var(--color-chalk-white) 40% 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+  touch-action: none;
+}
+
+.wipe-handle:active {
+  cursor: grabbing;
+}
+
+.wipe-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  flex: none;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-chalk-white);
+  cursor: pointer;
+}
+
+.wipe-close:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 /* ===== ズームコントロール (右下) ===== */
@@ -755,14 +825,14 @@
   background: rgba(255, 255, 255, 0.24);
 }
 
-.board-goto {
+.board-create {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.board-goto input {
-  flex: 1;
+.board-create input {
+  width: 100%;
   min-width: 0;
   font-family: var(--font-mono);
   font-size: 13px;
@@ -773,13 +843,19 @@
   padding: 6px 4px;
 }
 
-.board-goto input::placeholder {
+.board-create input::placeholder {
   font-family: var(--font-ui);
   color: var(--color-chalk-white);
   opacity: 0.5;
 }
 
-.board-goto button {
+.board-create-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.board-create-actions button {
+  flex: 1;
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 500;
@@ -790,16 +866,23 @@
   min-height: 36px;
   padding: 6px 12px;
   cursor: pointer;
-  flex: none;
 }
 
-.board-goto button:hover {
+.board-create-actions button:hover {
   background: rgba(255, 255, 255, 0.24);
 }
 
-.board-goto button:disabled {
+.board-create-actions button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* 同名エラーはチョーク桃で警告する */
+.board-error {
+  font-family: var(--font-hand);
+  font-size: 13px;
+  color: var(--color-chalk-pink);
+  margin: 0;
 }
 
 .board-popover-heading {
@@ -817,8 +900,44 @@
   overflow-y: auto;
 }
 
+.board-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 行ごとの削除。2 度押し確認中はマグネット赤で警告する */
+.board-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-chalk-white);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.board-del-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.board-del-btn.confirm {
+  opacity: 1;
+  color: var(--color-chalk-white);
+  background: var(--color-magnet);
+}
+
 .board-list a {
   display: block;
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 13px;
   color: var(--color-chalk-white);
@@ -1012,6 +1131,11 @@
   /* 中央のバナーと重ならないよう黒板名は短めに切り詰める */
   .board-badge {
     max-width: 30vw;
+  }
+
+  /* SP はトラックの幅を優先し、ヒント文は畳む */
+  .wipe-hint {
+    display: none;
   }
 
   /* 名前入力はボトムシートにする */

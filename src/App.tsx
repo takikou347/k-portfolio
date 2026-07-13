@@ -56,6 +56,7 @@ export default function App() {
       onMessage: (msg) => useStore.getState().handleServerMessage(msg),
       onStatus: (status) => useStore.getState().setStatus(status),
       onFull: () => useStore.getState().markFull(),
+      onDeleted: () => useStore.getState().markDeleted(),
     });
     conn.connect();
     useStore.getState().setConnection(conn);

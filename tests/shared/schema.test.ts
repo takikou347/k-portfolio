@@ -241,3 +241,18 @@ describe('serverMessageSchema', () => {
     ).toBe(false);
   });
 });
+
+describe('wipeLeftOf op', () => {
+  it('wipeLeftOf op を受け入れ、x 欠落・非有限は拒否する', () => {
+    expect(
+      clientMessageSchema.safeParse({ type: 'op', op: { type: 'wipeLeftOf', x: 120.5 } }).success,
+    ).toBe(true);
+    expect(
+      clientMessageSchema.safeParse({ type: 'op', op: { type: 'wipeLeftOf' } }).success,
+    ).toBe(false);
+    expect(
+      clientMessageSchema.safeParse({ type: 'op', op: { type: 'wipeLeftOf', x: Infinity } })
+        .success,
+    ).toBe(false);
+  });
+});

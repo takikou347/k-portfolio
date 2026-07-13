@@ -30,6 +30,20 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 
 - クライアントは指数バックオフ (`min(500 * 2^attempts, 8000)` ms ± 30% ジッター) で再接続する
 - 再接続後はサーバーが `snapshot` で盤面全量を送り直す。差分同期はない
+- close code **4003** (`CLOSE_CODE_FULL` = 満席拒否) と **4004** (`CLOSE_CODE_DELETED` =
+  黒板が削除された) を受けたら再接続してはならない。4004 ではクライアントは
+  「この黒板は削除されました」を表示して操作を止める
+
+### 黒板のメタ操作 (HTTP API)
+
+WebSocket とは別に、黒板単位のメタ操作を `/api/boards/<boardId>` で受ける
+(同じ boardId は同じ Durable Object にルーティングされる):
+
+- `GET` → `{ "exists": boolean }` — 実在確認。「一度でも参加された (meta の used フラグ) or
+  盤面データあり or 接続中あり」で true。名前指定作成の同名バリデーションに使う
+- `DELETE` → **204** — 黒板をデータごと削除。接続中の全クライアントを close code 4004 で
+  切断する。削除後は exists が false に戻り、同じ名前で作り直せる
+- その他のメソッドは **405**
 
 ## クライアント → サーバー (`ClientMessage`)
 
@@ -69,7 +83,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 
 ## 盤面操作 (`Op`)
 
-`type` を discriminator とする 10 種。無効な op (存在しない id、上限超過、何にも触れない
+`type` を discriminator とする 11 種。無効な op (存在しない id、上限超過、何にも触れない
 消しゴム軌跡) は無視され、ブロードキャストもされない。
 
 | type | フィールド | 挙動・制約 |
@@ -78,6 +92,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 | `eraseStroke` | `strokeId` | ストローク単位の削除。存在しない id は無視。取り消し (Ctrl/Cmd+Z) もこの op を使う |
 | `eraseArea` | `points, r` | 部分消し (GoodNotes 風)。軌跡 `points` (1〜40 点, `MAX_ERASE_POINTS`) と半径 `r` (1〜100) のカプセル領域に触れた区間だけを除去し、残存区間を断片ストロークに分割して盤面末尾に追加する。断片 id は `fragmentId(親id, 残存区間の開始 index)` (FNV ハッシュ) で決定的に生成され、クライアント / DO で一致する。どのストロークにも触れない op は無効扱い |
 | `clearStrokes` | — | 全消し。盤面のチョークストロークをすべて消す (付箋は対象外)。ストロークが 1 本もないときは無効扱い。クライアントの取り消し候補 (`myStrokeIds`) もクリアされる |
+| `wipeLeftOf` | `x` | 左から拭き取り。全ストロークについて x (ボード座標) より左の点を取り除き、残存区間を断片に分割して末尾に追加する (断片 id は `fragmentId` で決定的)。UI のスライド全消しが 60ms バッチで送る。どの点にも触れない op は無効扱い。付箋は対象外 |
 | `addSticky` | `sticky: Sticky` | 同一 id は冪等。200 枚 (`MAX_STICKIES`) 以上のときは無視 |
 | `moveSticky` | `id, x, y` | 存在しない id は無視 |
 | `editSticky` | `id, text` | text は 80 字まで (`STICKY_TEXT_MAX`) |
@@ -164,6 +179,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 | `MAX_CONNECTIONS` | 100 | 1 ボードの参加者上限。超過は spectator |
 | `MAX_SPECTATORS` | 20 | spectator 上限。超過は close 4003 |
 | `CLOSE_CODE_FULL` | 4003 | 満席拒否の close code (再接続禁止の合図) |
+| `CLOSE_CODE_DELETED` | 4004 | 黒板削除による切断の close code (再接続禁止の合図) |
 | `OPS_PER_SECOND` | 20 | op 受信レート (件/秒・接続ごと) |
 | `CURSORS_PER_SECOND` | 15 | cursor 受信レート |
 | `REACTIONS_PER_SECOND` | 3 | reaction 受信レート (クライアント側でも自主制限) |
@@ -179,6 +195,7 @@ GET wss://<host>/ws/<boardId>?name=<名前>&color=<色>
 | `CURSOR_THROTTLE_MS` | 80 | カーソル送信スロットル |
 | `STROKE_BATCH_MS` | 16 | stroking のバッチ送信間隔 |
 | `ZOOM_MIN` / `ZOOM_MAX` | 0.5 / 2 | クライアントのズーム範囲 |
+| `BOARD_API_PER_WINDOW` / `BOARD_API_WINDOW_MS` | 20 / 10,000ms | `/api/boards/:id` の IP ごと受信レート (Worker 側で数え、超過は **429**) |
 
 ## 設計上の約束
 

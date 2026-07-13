@@ -1,6 +1,12 @@
 import { env, runInDurableObject, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { CLOSE_CODE_FULL, MAX_CONNECTIONS, MAX_SPECTATORS, MAX_STROKES } from '../../shared/limits';
+import {
+  CLOSE_CODE_DELETED,
+  CLOSE_CODE_FULL,
+  MAX_CONNECTIONS,
+  MAX_SPECTATORS,
+  MAX_STROKES,
+} from '../../shared/limits';
 import { applyOp, emptyBoardState } from '../../shared/ops';
 import type { Op, ServerMessage, Stroke } from '../../shared/schema';
 import type { BoardDO } from '../../worker/board-do';
@@ -42,6 +48,76 @@ describe('Worker ルーティング', () => {
   it('/ws/:boardId への非 WebSocket リクエストは 426 を返す', async () => {
     const res = await SELF.fetch('https://example.com/ws/main');
     expect(res.status).toBe(426);
+  });
+
+  it('GET /api/boards/:id は未使用の黒板で exists=false、参加後は true を返す (切断後も維持)', async () => {
+    const res = await SELF.fetch('https://example.com/api/boards/exists-board');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ exists: false });
+
+    const a = await connect('exists-board', 'はなこ');
+    await a.next(); // snapshot
+    const joined = await SELF.fetch('https://example.com/api/boards/exists-board');
+    expect(await joined.json()).toEqual({ exists: true });
+
+    // 全員が退室しても「使用済み」は残る (meta フラグの永続化)
+    a.ws.close(1000);
+    const after = await SELF.fetch('https://example.com/api/boards/exists-board');
+    expect(await after.json()).toEqual({ exists: true });
+  });
+
+  it('meta フラグの無い旧黒板でも、盤面データがあれば exists=true (後方互換)', async () => {
+    const stub = env.BOARD.getByName('legacy-exists-board');
+    await runInDurableObject(stub, async (instance: BoardDO) => {
+      instance.applyAndPersist({
+        type: 'addStroke',
+        stroke: { id: 'old', color: 'white', points: [{ x: 0, y: 0 }] },
+      });
+    });
+    const res = await SELF.fetch('https://example.com/api/boards/legacy-exists-board');
+    expect(await res.json()).toEqual({ exists: true });
+  });
+
+  it('/api/boards/:id への GET / DELETE 以外のメソッドは 405 を返す', async () => {
+    const res = await SELF.fetch('https://example.com/api/boards/method-board', {
+      method: 'POST',
+    });
+    expect(res.status).toBe(405);
+  });
+
+  it('DELETE /api/boards/:id で盤面がデータごと消え、接続は 4004 で閉じ、exists も false に戻る', async () => {
+    const a = await connect('delete-board', 'はなこ');
+    await a.next(); // snapshot
+
+    const stub = env.BOARD.getByName('delete-board');
+    await runInDurableObject(stub, async (instance: BoardDO) => {
+      instance.applyAndPersist({
+        type: 'addStroke',
+        stroke: { id: 's1', color: 'white', points: [{ x: 0, y: 0 }] },
+      });
+    });
+    const closed = new Promise<number>((resolve) => {
+      a.ws.addEventListener('close', (e) => resolve(e.code));
+    });
+
+    const res = await SELF.fetch('https://example.com/api/boards/delete-board', {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(204);
+    // 閲覧中の接続は「削除された」専用コードで切断される (クライアントは再接続しない)
+    expect(await closed).toBe(CLOSE_CODE_DELETED);
+
+    // ストレージも空になっている (strokes / stickies / meta)
+    await runInDurableObject(stub, async (_instance: BoardDO, state) => {
+      for (const table of ['strokes', 'stickies', 'meta']) {
+        const count = Number(state.storage.sql.exec(`SELECT COUNT(*) AS c FROM ${table}`).one().c);
+        expect(count).toBe(0);
+      }
+    });
+
+    // exists が false に戻る = 同じ名前で作り直せる
+    const ex = await SELF.fetch('https://example.com/api/boards/delete-board');
+    expect(await ex.json()).toEqual({ exists: false });
   });
 
   it('不正な入室情報 (名前 1 文字) は 400 で拒否する', async () => {
@@ -190,6 +266,46 @@ describe('BoardDO: presence とライブカーソル', () => {
     );
     b.ws.send(JSON.stringify({ type: 'cursor', x: 3, y: 3 }));
     expect(await a.next()).toMatchObject({ type: 'cursor', x: 3, y: 3 });
+  });
+
+  it('wipeLeftOf op で x より左だけが消え、断片が SQLite に永続化される', async () => {
+    const line: Stroke = {
+      id: 'wipe-line',
+      color: 'white',
+      points: Array.from({ length: 11 }, (_, i) => ({ x: i * 10, y: 0 })),
+    };
+
+    const a = await connect('wipe-board', 'はなこ');
+    await a.next(); // snapshot
+    const b = await connect('wipe-board', 'たろう', 'blue');
+    await b.next(); // snapshot
+    await a.next(); // join presence
+
+    a.ws.send(JSON.stringify({ type: 'op', op: { type: 'addStroke', stroke: line } }));
+    await b.next();
+
+    // B の拭き取りが A にブロードキャストされる
+    const wipe: Op = { type: 'wipeLeftOf', x: 25 };
+    b.ws.send(JSON.stringify({ type: 'op', op: wipe }));
+    expect(await a.next()).toEqual({ type: 'op', op: wipe });
+
+    // 共有 reducer と同じ結果が永続化され、後から入る C の snapshot に反映される
+    let expected = emptyBoardState();
+    expected = applyOp(expected, { type: 'addStroke', stroke: line });
+    expected = applyOp(expected, wipe);
+    const c = await connect('wipe-board', 'じろう', 'yellow');
+    const snapC = await c.next();
+    expect(snapC.type).toBe('snapshot');
+    if (snapC.type !== 'snapshot') return;
+    expect(snapC.state.strokes).toEqual(expected.strokes);
+    expect(snapC.state.strokes[0].points).toEqual(line.points.slice(3));
+    await a.next(); // C の join presence を消費
+    await b.next();
+
+    // 何にも触れない wipeLeftOf は無効 op としてブロードキャストされない
+    b.ws.send(JSON.stringify({ type: 'op', op: { type: 'wipeLeftOf', x: -9999 } }));
+    b.ws.send(JSON.stringify({ type: 'cursor', x: 8, y: 8 }));
+    expect(await a.next()).toMatchObject({ type: 'cursor', x: 8, y: 8 });
   });
 
   it('付箋の作成・移動・編集が同期され、SQLite に永続化される', async () => {

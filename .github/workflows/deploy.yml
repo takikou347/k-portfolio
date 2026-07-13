@@ -4,16 +4,57 @@ on:
   push:
     branches: [main]
 
-# 承認されないまま waiting で残った古い run がスロットを塞ぎ、後続リリースの run が
-# 永久に pending になるのを防ぐ: 新しい main への push が古い run を自動キャンセルする (#66)
-concurrency:
-  group: deploy-production
-  cancel-in-progress: true
+# concurrency の cancel-in-progress: true は使わない — workflow レベルのキャンセルは
+# waiting (承認待ち) と in_progress (デプロイ実行中) を区別せず、人間が承認して
+# wrangler deploy が走っている run まで途中で強制キャンセルしてしまう (#68 レビュー指摘 / #83)。
+# 代わりに:
+# - 承認待ちで滞留した古い run の掃除 (#66 対策) は cancel-stale-waiting ジョブが
+#   status=waiting の run だけを対象に API で行う
+# - デプロイの直列化は deploy ジョブ側の concurrency (cancel-in-progress: false) で行う
+
+permissions:
+  contents: read
 
 jobs:
+  # 承認されないまま waiting で残った古い run がスロットを塞ぎ、後続リリースの run が
+  # 永久に pending になるのを防ぐ (#66)。in_progress の run には決して触れない
+  cancel-stale-waiting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: 承認待ちのまま滞留した古い run をキャンセル
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?status=waiting&per_page=100" \
+            --jq ".workflow_runs[] | select(.id != ${RUN_ID} and .run_number < ${RUN_NUMBER}) | .id" \
+          | while read -r id; do
+              # TOCTOU 対策: 一覧取得後に人間が承認した run (in_progress へ遷移) を
+              # 巻き込まないよう、cancel 直前に状態を個別再確認する。再確認〜cancel 間の
+              # ごく短い残余レースは許容する — 万一実行中を止めても、その状況では必ず
+              # より新しい run が控えており、その承認・デプロイで最新版に収束する
+              status=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}" --jq .status || echo "unknown")
+              if [ "$status" != "waiting" ]; then
+                echo "run ${id} は ${status} に遷移していたためスキップ (waiting のみキャンセル対象)"
+                continue
+              fi
+              echo "古い承認待ち run をキャンセル: ${id}"
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/cancel" \
+                || echo "::warning::run ${id} のキャンセルに失敗 (すでに終了している可能性)"
+            done
+
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # 直列化のみでキャンセルはしない: 実行中のデプロイがある間、次の run はここで待つ
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     # 本番の決定論的な最終ゲート: production 環境の required reviewers (人間) が
     # 承認するまでこのジョブは開始されない (設定は scripts/setup-branch-protection.sh)
     environment: production

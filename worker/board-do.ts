@@ -1,6 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
-import { CLOSE_CODE_FULL, MAX_CONNECTIONS, MAX_SPECTATORS, MAX_STROKES } from '../shared/limits';
-import { applyOp, type BoardState } from '../shared/ops';
+import {
+  CLOSE_CODE_DELETED,
+  CLOSE_CODE_FULL,
+  MAX_CONNECTIONS,
+  MAX_SPECTATORS,
+  MAX_STROKES,
+} from '../shared/limits';
+import { applyOp, emptyBoardState, type BoardState } from '../shared/ops';
 import {
   clientMessageSchema,
   joinSchema,
@@ -50,12 +56,43 @@ export class BoardDO extends DurableObject<Env> {
         id   TEXT PRIMARY KEY,
         data TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS meta (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
+  }
+
+  /**
+   * この黒板が「使われている」か。参加実績 (meta の used フラグ)、盤面データ、
+   * 接続中の誰か、のいずれかがあれば真。meta 導入前に作られた旧黒板は
+   * フラグを持たないため、データと接続でのフォールバック判定が後方互換になる。
+   */
+  exists(): boolean {
+    const used =
+      this.ctx.storage.sql.exec("SELECT 1 AS x FROM meta WHERE key = 'used' LIMIT 1").toArray()
+        .length > 0;
+    if (used) return true;
+    const board = this.board();
+    if (board.strokes.length > 0 || board.stickies.length > 0) return true;
+    return this.ctx.getWebSockets().length > 0;
   }
 
   // ---- 接続 ----
 
   override async fetch(request: Request): Promise<Response> {
+    // メタ操作 (/api/boards/:id): 実在確認と削除。Worker が同じ DO へルーティングしてくる。
+    // prefix はルーター (BOARD_API_RE) の実パスに合わせ、将来の別 /api/ 系を誤って吸わない
+    if (new URL(request.url).pathname.startsWith('/api/boards/')) {
+      if (request.method === 'GET') {
+        return Response.json({ exists: this.exists() });
+      }
+      if (request.method === 'DELETE') {
+        this.deleteBoard();
+        return new Response(null, { status: 204 });
+      }
+      return new Response('method not allowed', { status: 405 });
+    }
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
       return new Response('Expected WebSocket', { status: 426 });
     }
@@ -85,6 +122,8 @@ export class BoardDO extends DurableObject<Env> {
     const server = pair[1];
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment(session);
+    // 一度でも参加された黒板は「使用済み」として記録する (同名作成のバリデーションに使う)
+    this.ctx.storage.sql.exec("INSERT OR IGNORE INTO meta (key, value) VALUES ('used', '1')");
 
     const users = spectator
       ? members
@@ -169,6 +208,26 @@ export class BoardDO extends DurableObject<Env> {
   }
 
   /**
+   * 黒板をデータごと削除する。テーブルは残して全行を消す (スキーマ再作成を不要にする)。
+   * 閲覧中の接続は「削除された」専用コードで切り、クライアント側で再接続を止めさせる。
+   * meta も消えるため exists() が false に戻り、同じ名前で作り直せる。
+   */
+  deleteBoard(): void {
+    const sql = this.ctx.storage.sql;
+    sql.exec('DELETE FROM strokes');
+    sql.exec('DELETE FROM stickies');
+    sql.exec('DELETE FROM meta');
+    this.#board = emptyBoardState();
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        ws.close(CLOSE_CODE_DELETED, 'board deleted');
+      } catch {
+        // すでに閉じている接続は無視
+      }
+    }
+  }
+
+  /**
    * op を共有 reducer で適用し、変更があれば SQLite に反映する。
    * 変更がなかった (無効な op) 場合は false を返し、ブロードキャストもしない。
    */
@@ -200,9 +259,10 @@ export class BoardDO extends DurableObject<Env> {
         sql.exec('DELETE FROM strokes WHERE id = ?', op.strokeId);
         break;
       }
-      case 'eraseArea': {
-        // 部分消しは元ストロークの削除 + 断片の追加になる。reducer 適用前後の id を
-        // 突き合わせ、消えたものを DELETE・現れた断片を INSERT する
+      case 'eraseArea':
+      case 'wipeLeftOf': {
+        // 部分消し・左から拭き取りは元ストロークの削除 + 断片の追加になる。reducer 適用
+        // 前後の id を突き合わせ、消えたものを DELETE・現れた断片を INSERT する
         const beforeIds = new Set(before.strokes.map((s) => s.id));
         const afterIds = new Set(after.strokes.map((s) => s.id));
         for (const s of before.strokes) {

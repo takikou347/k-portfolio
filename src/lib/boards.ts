@@ -27,6 +27,21 @@ export function loadVisitedBoards(): string[] {
   }
 }
 
+/**
+ * サーバーに黒板が実在するか問い合わせる (同名作成のバリデーション用)。
+ * 確認できなかった場合は null — 呼び出し側は作成を止めずに続行してよい (ベストエフォート)
+ */
+export async function boardExists(id: string): Promise<boolean | null> {
+  try {
+    const res = await fetch(`/api/boards/${id}`);
+    if (!res.ok) return null;
+    const json = (await res.json()) as { exists?: unknown };
+    return typeof json.exists === 'boolean' ? json.exists : null;
+  } catch {
+    return null;
+  }
+}
+
 /** いまの黒板を訪問履歴の先頭に記録し、保存後のリストを返す */
 export function recordBoardVisit(id: string): string[] {
   const next = pushVisited(loadVisitedBoards(), id);
@@ -36,4 +51,25 @@ export function recordBoardVisit(id: string): string[] {
     // プライベートモード等で保存できなくても黒板の利用は続行する
   }
   return next;
+}
+
+/** 黒板を訪問履歴から外し、保存後のリストを返す */
+export function removeVisitedBoard(id: string): string[] {
+  const next = loadVisitedBoards().filter((b) => b !== id);
+  try {
+    window.localStorage.setItem(BOARDS_KEY, JSON.stringify(next));
+  } catch {
+    // 保存できなくても続行する
+  }
+  return next;
+}
+
+/** 黒板をサーバーからデータごと削除する。成功したら true */
+export async function deleteBoard(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/boards/${id}`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

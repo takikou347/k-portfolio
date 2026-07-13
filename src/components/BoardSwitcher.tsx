@@ -1,7 +1,13 @@
-import { Plus, Presentation } from 'lucide-react';
+import { Plus, Presentation, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { isBoardId, randomBoardId } from '../lib/board-id';
-import { loadVisitedBoards, recordBoardVisit } from '../lib/boards';
+import {
+  boardExists,
+  deleteBoard,
+  loadVisitedBoards,
+  recordBoardVisit,
+  removeVisitedBoard,
+} from '../lib/boards';
 
 type Props = { boardId: string };
 
@@ -14,7 +20,55 @@ export default function BoardSwitcher({ boardId }: Props) {
   const [open, setOpen] = useState(false);
   const [boards, setBoards] = useState<string[]>(loadVisitedBoards);
   const [dest, setDest] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  const go = (id: string) => window.location.assign(`/b/${id}`);
+
+  // 黒板の削除は全員の落書きが消えるため、行ごとの 2 度押し確認を要求する
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (deleteTimerRef.current !== null) clearTimeout(deleteTimerRef.current);
+    },
+    [],
+  );
+  const onDelete = async (id: string) => {
+    if (deleteTimerRef.current !== null) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+    if (confirmDelete !== id) {
+      setConfirmDelete(id);
+      setError(null);
+      deleteTimerRef.current = setTimeout(() => {
+        deleteTimerRef.current = null;
+        setConfirmDelete(null);
+      }, 3000);
+      return;
+    }
+    setConfirmDelete(null);
+    if (await deleteBoard(id)) {
+      setBoards(removeVisitedBoard(id));
+    } else {
+      setError('削除できませんでした');
+    }
+  };
+
+  /** 「つくる」: 同名の黒板が実在したらエラー。確認できない場合はベストエフォートで続行 */
+  const onCreate = async () => {
+    if (!isBoardId(dest) || checking) return;
+    setChecking(true);
+    const exists = await boardExists(dest);
+    setChecking(false);
+    if (exists === true) {
+      setError('その名前はもう使われています');
+      return;
+    }
+    go(dest);
+  };
 
   // いまの黒板を訪問履歴へ記録する (再訪時は先頭へ繰り上げ)
   useEffect(() => {
@@ -49,33 +103,43 @@ export default function BoardSwitcher({ boardId }: Props) {
       </button>
       {open && (
         <div className="board-popover">
-          <button
-            type="button"
-            className="board-new-btn"
-            onClick={() => window.location.assign(`/b/${randomBoardId()}`)}
-          >
-            <Plus size={14} aria-hidden />
-            あたらしい黒板をつくる
-          </button>
           <form
-            className="board-goto"
+            className="board-create"
             onSubmit={(e) => {
               e.preventDefault();
-              if (isBoardId(dest)) window.location.assign(`/b/${dest}`);
+              void onCreate();
             }}
           >
             <input
               type="text"
               value={dest}
-              onChange={(e) => setDest(e.target.value.trim())}
-              placeholder="なまえで移動"
+              onChange={(e) => {
+                setDest(e.target.value.trim());
+                setError(null);
+              }}
+              placeholder="黒板のなまえ"
               aria-label="黒板の名前"
               maxLength={64}
+              disabled={checking}
             />
-            <button type="submit" disabled={!isBoardId(dest)}>
-              いく
-            </button>
+            <div className="board-create-actions">
+              <button type="submit" disabled={!isBoardId(dest) || checking}>
+                {checking ? 'かくにん中…' : 'つくる'}
+              </button>
+              <button type="button" disabled={!isBoardId(dest)} onClick={() => go(dest)}>
+                ひらく
+              </button>
+            </div>
+            {error && (
+              <p className="board-error" role="alert">
+                {error}
+              </p>
+            )}
           </form>
+          <button type="button" className="board-new-btn" onClick={() => go(randomBoardId())}>
+            <Plus size={14} aria-hidden />
+            おまかせでつくる
+          </button>
           {visited.length > 0 && (
             <>
               <p className="board-popover-heading">さいきん行った黒板</p>
@@ -83,6 +147,18 @@ export default function BoardSwitcher({ boardId }: Props) {
                 {visited.map((b) => (
                   <li key={b}>
                     <a href={`/b/${b}`}>{b}</a>
+                    <button
+                      type="button"
+                      className={`board-del-btn${confirmDelete === b ? ' confirm' : ''}`}
+                      aria-label={
+                        confirmDelete === b
+                          ? `もういちど押すと黒板「${b}」をデータごと削除します`
+                          : `黒板「${b}」を削除`
+                      }
+                      onClick={() => void onDelete(b)}
+                    >
+                      <Trash2 size={13} aria-hidden />
+                    </button>
                   </li>
                 ))}
               </ul>

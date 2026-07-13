@@ -49,9 +49,15 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
      行っても、本番反映の直前で必ず人間の判断が入る
    - リリース PR を merge すると Actions に「Review deployments」の承認待ちが現れるので、
      内容を確認して Approve する (却下すればデプロイされない)
-   - 承認しないまま次のリリース PR を merge した場合、古い承認待ち run は自動キャンセルされ、
-     常に最新の run だけが承認待ちになる (`deploy.yml` の `cancel-in-progress: true`)。
-     承認忘れの run がスロットを塞ぎ、後続デプロイが `pending` で止まる事故 (#66) の再発防止
+   - 承認しないまま次のリリース PR を merge した場合、**承認待ち (waiting) のまま滞留した**古い run
+     だけが `deploy.yml` の `cancel-stale-waiting` ジョブによって自動キャンセルされ、常に最新の run が
+     承認待ちになる。承認忘れの run がスロットを塞ぎ、後続デプロイが `pending` で止まる事故 (#66) の
+     再発防止。**承認済みで実行中 (in_progress) のデプロイはキャンセルされない** — workflow レベルの
+     `cancel-in-progress: true` は waiting と in_progress を区別せず実行中の本番デプロイまで
+     中断してしまうため使わず、デプロイの直列化は deploy ジョブ側の concurrency
+     (cancel なし) で行う (#83)。なお concurrency は FIFO のため、承認待ち (waiting) に
+     なれるのはキュー先頭の 1 run だけ — 複数リリースが滞留した場合は push のたびに
+     先頭 1 件ずつキャンセルされ、最終的に最新 run に収束する (即座ではない)
    - **注意**: production 環境が存在しない状態でデプロイが走ると、GitHub が保護なしの環境を
      自動作成して素通りする。**スクリプトの適用を先に**行うこと
 4. **リポジトリ設定** (上記スクリプトが Ruleset とあわせて適用する):
@@ -66,6 +72,42 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
    > 逸脱経路が理論上残るため、決定論的な最後の砦を GitHub 側に置く: 直 push・削除・CI red の merge は
    > **ブランチ保護 Ruleset** が遮断し、本番反映は **production 環境のデプロイ承認** が遮断する
    > (仮に自動化がリリース PR を merge してしまっても、人間が承認するまで本番には出ない)。
+
+## 外部入力からの保護 (public リポジトリの攻撃面)
+
+public リポジトリでは誰でも Issue 起票・フォーク PR 作成ができる。Claude 系ワークフローは
+書き込み権限とサブスクリプショントークンを持つため、信頼できない入力が届く経路を
+決定論的に (LLM の判断に頼らず) 遮断している:
+
+- **フォーク PR** — `claude-review.yml` は CI 成功時の `workflow_run` トリガーで動く
+  (push ごとのフルレビューをやめ、CI green の push だけをレビューする消費最適化、#81)。
+  `workflow_run` は base リポジトリの secrets で実行されるため、`head_repository` が
+  本体リポジトリと一致する場合のみ起動するガードでフォーク PR を決定論的に除外する
+  (`claude-autofix-ci.yml` と同じ pwn request 対策)。同一コミットの重複レビューは、
+  投稿コメント末尾の `[claude-review-sha]` マーカーを gate ステップが検査して skip する。
+  マーカーは**レビューが正常終了したときだけ**付与される — 失敗した実行に付けると
+  そのコミットの再レビューが永久にスキップされるため (#85)。レビューが失敗した場合は
+  Actions から CI を Re-run すれば再レビューされる
+- **@claude メンション** (`claude.yml`) — 起動者を author_association
+  (OWNER / MEMBER / COLLABORATOR) で限定し、フォーク PR 上のイベントは除外する
+- **Issue トリアージ** (`claude-issue-triage.yml`) — 同じ author_association ゲートで
+  外部者の起票では起動しない (#78)
+- **日次バッチ** (`claude-auto-resolve.yml`) — Claude 起動前のシェルステップが起票者の
+  author_association を検査し、通過した Issue 番号の許可リストをプロンプトに注入する。
+  リスト外の Issue は本文に何が書かれていても処理されない (#78)。
+  ラベル方式の許可リストは採用しない — `issues: write` を持つトリアージが
+  プロンプトインジェクションでラベルを付けさせられると迂回できてしまうため。
+  さらに、**信頼できない利用者のコメントが付いた Issue も除外する** (起票者が信頼できても
+  コメント欄から指示を注入できるため)。除外された Issue は Actions の warning に出るので、
+  コメントを確認して問題なければ人間が対応する。外部者のコメント連投で正当な Issue の
+  自動処理を止めることは可能だが、fail-closed (安全側で止まる) を優先する設計。
+  なお GitHub API の取得に失敗した場合もステップごと失敗し、その日のバッチ全体が
+  スキップされる (これも fail-closed — バッチが黒く落ちていたらこれを疑う)
+- **CI 自動修復** (`claude-autofix-ci.yml`) — `head_repository` が本体リポジトリと一致する
+  場合のみ起動 (pwn request 対策) し、対象ブランチ名も正規表現で限定する
+
+これらをすり抜けた場合の最後の砦は前節の通り: main / develop への直 push はブランチ保護
+Ruleset が、本番反映は production 環境のデプロイ承認 (人間) が遮断する。
 
 ## 課金リスクについて
 

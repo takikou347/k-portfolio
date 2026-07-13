@@ -200,3 +200,55 @@ describe('applyOp: 付箋 (addSticky / moveSticky / editSticky / recolorSticky /
     ).toBe(state);
   });
 });
+
+describe('applyOp: wipeLeftOf (左から拭き取り)', () => {
+  /** x 軸上に 10px 間隔で n 点並ぶ直線ストローク */
+  function line(id: string, n: number, y = 0): Stroke {
+    return {
+      id,
+      color: 'white',
+      points: Array.from({ length: n }, (_, i) => ({ x: i * 10, y })),
+    };
+  }
+
+  it('ライン (x) より左の点だけが消え、残りは断片として末尾に追加される', () => {
+    let state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: line('target', 11) });
+    state = applyOp(state, { type: 'addStroke', stroke: line('right', 3, 0) });
+    // right は x=0..20 → x=25 のラインで全消し、target は x=30 以降が残る
+    const untouched: Stroke = { id: 'far', color: 'pink', points: [{ x: 500, y: 0 }] };
+    state = applyOp(state, { type: 'addStroke', stroke: untouched });
+    const far = state.strokes[2];
+
+    const next = applyOp(state, { type: 'wipeLeftOf', x: 25 });
+    // 触れていない far は同一参照のまま先頭に繰り上がる (SQLite の追記順と一致させる)
+    expect(next.strokes[0]).toBe(far);
+    expect(next.strokes).toHaveLength(2); // far + target の右側断片 (right は全消し)
+    const fragment = next.strokes[1];
+    expect(fragment.points).toEqual(line('target', 11).points.slice(3));
+    expect(fragment.id).not.toBe('target');
+  });
+
+  it('全ストロークがラインより左なら全消しになる', () => {
+    let state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: line('a', 3) });
+    state = applyOp(state, { type: 'addStroke', stroke: line('b', 3, 100) });
+    const next = applyOp(state, { type: 'wipeLeftOf', x: 9999 });
+    expect(next.strokes).toHaveLength(0);
+  });
+
+  it('どのストロークにも触れない wipeLeftOf は無視され、state は同一参照のまま (付箋も対象外)', () => {
+    let state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: line('a', 3) });
+    state = applyOp(state, { type: 'addSticky', sticky: sticky('n1') });
+    expect(applyOp(state, { type: 'wipeLeftOf', x: -100 })).toBe(state);
+    expect(state.stickies).toHaveLength(1);
+  });
+
+  it('同じラインでの再適用は無効 (冪等)、より右のラインは断片をさらに削る', () => {
+    let state = applyOp(emptyBoardState(), { type: 'addStroke', stroke: line('t', 11) });
+    state = applyOp(state, { type: 'wipeLeftOf', x: 25 });
+    const once = state;
+    expect(applyOp(once, { type: 'wipeLeftOf', x: 25 })).toBe(once);
+    const more = applyOp(once, { type: 'wipeLeftOf', x: 55 });
+    expect(more.strokes).toHaveLength(1);
+    expect(more.strokes[0].points).toEqual(line('t', 11).points.slice(6));
+  });
+});

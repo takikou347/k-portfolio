@@ -1,5 +1,6 @@
+import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { CURSORS_PER_SECOND, OPS_PER_SECOND } from '../../shared/limits';
+import { BOARD_API_PER_WINDOW, CURSORS_PER_SECOND, OPS_PER_SECOND } from '../../shared/limits';
 import { RateLimiter } from '../../worker/rate-limit';
 
 describe('RateLimiter', () => {
@@ -49,5 +50,22 @@ describe('RateLimiter', () => {
     for (let i = 0; i <= CURSORS_PER_SECOND; i++) limiter.allow(key, 'cursor', t);
     expect(limiter.allow(key, 'cursor', t)).toBe(false);
     expect(limiter.allow(key, 'op', t)).toBe(true);
+  });
+});
+
+describe('/api/boards の IP ごとレート制限 (Worker 側)', () => {
+  it('同一 IP は窓内 20 リクエストまで許可し、21 件目から 429 を返す', async () => {
+    const headers = { 'CF-Connecting-IP': '203.0.113.9' };
+    for (let i = 0; i < BOARD_API_PER_WINDOW; i++) {
+      const res = await SELF.fetch(`https://example.com/api/boards/rate-${i}`, { headers });
+      expect(res.status).toBe(200);
+    }
+    const blocked = await SELF.fetch('https://example.com/api/boards/rate-over', { headers });
+    expect(blocked.status).toBe(429);
+    // 別 IP は影響を受けない
+    const other = await SELF.fetch('https://example.com/api/boards/rate-other', {
+      headers: { 'CF-Connecting-IP': '203.0.113.10' },
+    });
+    expect(other.status).toBe(200);
   });
 });

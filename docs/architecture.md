@@ -14,8 +14,9 @@
   └─ BoardConnection (src/ws/connection.ts) — WebSocket 接続・再接続
         ↕ WebSocket  /ws/:boardId
 [Cloudflare Worker] (worker/index.ts)
-  ├─ /ws/:boardId → env.BOARD.getByName(boardId) で DO へルーティング
-  └─ それ以外     → static assets (dist/ の SPA、SPA fallback あり)
+  ├─ /ws/:boardId         → env.BOARD.getByName(boardId) で DO へルーティング
+  ├─ /api/boards/:boardId → 同じ DO へ (GET: 実在確認 / DELETE: 黒板削除。他は 405)
+  └─ それ以外             → static assets (dist/ の SPA、SPA fallback あり)
 [Durable Object] BoardDO (worker/board-do.ts)
   ├─ WebSocket Hibernation API で接続維持
   ├─ SQLite ストレージに盤面 (strokes / stickies) を永続化
@@ -110,6 +111,10 @@ CREATE TABLE IF NOT EXISTS stickies (
   id   TEXT PRIMARY KEY,
   data TEXT NOT NULL                       -- Sticky の JSON
 );
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,                  -- used: 一度でも参加された黒板の印
+  value TEXT NOT NULL
+);
 ```
 
 - ストロークが 2000 本 (`MAX_STROKES`) を超えたら `seq` の古い順に DELETE
@@ -122,6 +127,13 @@ CREATE TABLE IF NOT EXISTS stickies (
   SQLite への書き込みもブロードキャストも起きない
 - 付箋の読み出しは `stickySchema.safeParse` を通す — `w` / `h` / `fontSize` を持たない
   旧データにデフォルト値を補完する後方互換のため。壊れた行は黙って捨てる
+- **実在確認** (`GET /api/boards/:id` → `{ exists }`): 「meta の `used` フラグ or 盤面データ
+  あり or 接続中の誰かあり」で判定する。`used` は初回の WebSocket 参加受け入れ時に記録。
+  meta 導入前に作られた旧黒板はフラグを持たないため、後段のフォールバックが後方互換になる。
+  クライアントは黒板の名前指定作成時の同名バリデーション (ベストエフォート) に使う
+- **黒板の削除** (`DELETE /api/boards/:id` → 204): strokes / stickies / meta の全行を消す
+  (テーブルは残し、スキーマ再作成を不要にする)。接続中の全 WebSocket を close code 4004
+  (`CLOSE_CODE_DELETED`) で切断し、クライアントは再接続せず削除バナーを表示する
 
 ## クライアントの状態管理
 
@@ -153,6 +165,7 @@ canvas 2D に直接描く (`src/board/BoardCanvas.tsx`)。
 | 同時接続 100 / spectator 20 | DO の接続受け入れ (`board-do.ts`) |
 | 受信レート制限 (op 20 / cursor 15 / reaction 3 / stroking 70 件/秒・接続ごと) | `worker/rate-limit.ts` (1 秒窓、超過は黙って破棄) |
 | カーソル 80ms スロットル・ストローク 16ms バッチ | クライアント (`connection.ts` / `BoardCanvas.tsx`) |
+| `/api/boards` の IP ごとレート (20 件/10 秒、超過 429) | `worker/index.ts` (アイソレートローカルの粗い防波堤) |
 | 盤面上限 (ストローク 2000 / 付箋 200 / 1 ストローク 600 点 / テキスト 80 字) | zod スキーマ + reducer + SQLite の間引き |
 
 Cloudflare 無料プランは fail-closed (超過で課金ではなく停止) だが、防御は
