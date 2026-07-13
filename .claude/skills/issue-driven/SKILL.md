@@ -42,8 +42,9 @@ main と develop へは直 push しない・削除しない。
    Actions の「Review deployments」から人間が承認して本番デプロイを実行する。
    **リリースは merge で終わりではなく、この承認とデプロイ成功の確認までがリリース** —
    Claude がリリースを見届ける場合はデプロイ run の成否まで追跡して報告する。
-   承認されないまま残った古い run は、次のリリース merge で自動キャンセルされる
-   (`deploy.yml` の `cancel-in-progress: true`、#66)
+   承認されないまま waiting で残った古い run は、次のリリース merge 時に `deploy.yml` の
+   `cancel-stale-waiting` ジョブが自動キャンセルする (承認済みで実行中のデプロイは
+   キャンセルされない、#66 / #83)
 4. **merge 後も develop は削除しない**。merge 後に GitHub Release を作成すると
    `.github/release.yml` のカテゴリ設定でリリースノートを自動生成できる
 
