@@ -55,7 +55,9 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
      再発防止。**承認済みで実行中 (in_progress) のデプロイはキャンセルされない** — workflow レベルの
      `cancel-in-progress: true` は waiting と in_progress を区別せず実行中の本番デプロイまで
      中断してしまうため使わず、デプロイの直列化は deploy ジョブ側の concurrency
-     (cancel なし) で行う (#83)
+     (cancel なし) で行う (#83)。なお concurrency は FIFO のため、承認待ち (waiting) に
+     なれるのはキュー先頭の 1 run だけ — 複数リリースが滞留した場合は push のたびに
+     先頭 1 件ずつキャンセルされ、最終的に最新 run に収束する (即座ではない)
    - **注意**: production 環境が存在しない状態でデプロイが走ると、GitHub が保護なしの環境を
      自動作成して素通りする。**スクリプトの適用を先に**行うこと
 4. **リポジトリ設定** (上記スクリプトが Ruleset とあわせて適用する):
