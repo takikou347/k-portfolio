@@ -49,9 +49,15 @@ Secrets 未設定の間に push しても、各ワークフローは自動スキ
      行っても、本番反映の直前で必ず人間の判断が入る
    - リリース PR を merge すると Actions に「Review deployments」の承認待ちが現れるので、
      内容を確認して Approve する (却下すればデプロイされない)
-   - 承認しないまま次のリリース PR を merge した場合、古い承認待ち run は自動キャンセルされ、
-     常に最新の run だけが承認待ちになる (`deploy.yml` の `cancel-in-progress: true`)。
-     承認忘れの run がスロットを塞ぎ、後続デプロイが `pending` で止まる事故 (#66) の再発防止
+   - 承認しないまま次のリリース PR を merge した場合、**承認待ち (waiting) のまま滞留した**古い run
+     だけが `deploy.yml` の `cancel-stale-waiting` ジョブによって自動キャンセルされ、常に最新の run が
+     承認待ちになる。承認忘れの run がスロットを塞ぎ、後続デプロイが `pending` で止まる事故 (#66) の
+     再発防止。**承認済みで実行中 (in_progress) のデプロイはキャンセルされない** — workflow レベルの
+     `cancel-in-progress: true` は waiting と in_progress を区別せず実行中の本番デプロイまで
+     中断してしまうため使わず、デプロイの直列化は deploy ジョブ側の concurrency
+     (cancel なし) で行う (#83)。なお concurrency は FIFO のため、承認待ち (waiting) に
+     なれるのはキュー先頭の 1 run だけ — 複数リリースが滞留した場合は push のたびに
+     先頭 1 件ずつキャンセルされ、最終的に最新 run に収束する (即座ではない)
    - **注意**: production 環境が存在しない状態でデプロイが走ると、GitHub が保護なしの環境を
      自動作成して素通りする。**スクリプトの適用を先に**行うこと
 4. **リポジトリ設定** (上記スクリプトが Ruleset とあわせて適用する):
