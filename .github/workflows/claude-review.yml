@@ -83,7 +83,11 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             PR #${{ steps.gate.outputs.pr }} をレビューしてください。
-            変更差分は `git diff origin/${{ steps.gate.outputs.base }}...HEAD` で取得できます。
+            リポジトリは checkout 済みで、base ブランチ origin/${{ steps.gate.outputs.base }} も
+            fetch 済みです。変更差分は `git diff origin/${{ steps.gate.outputs.base }}...HEAD` で
+            取得できます。ネットワークアクセスや gh コマンド (`gh pr view` 等) は承認されないため
+            使わないこと — 許可されている `git diff` / `git log` / `git show` とリポジトリ内の
+            ファイル読み取りだけで完結させること。
             .claude/agents/code-reviewer.md の観点と出力形式に従い、
             .claude/rules/ の規約違反・セキュリティ・型・テスト欠落を [must] / [nits] で指摘してください。
             問題がなければ「must 指摘なし」とだけ返してください。
@@ -122,8 +126,13 @@ jobs:
           fi
           # GitHub のコメント本文上限 (65536 字) を超えると 422 で失敗するため切り詰める
           BODY="${BODY:0:60000}"
-          # 末尾のマーカーは gate ステップの「レビュー済み判定」が参照する (切り詰め後に付与して欠落を防ぐ)
-          printf '## 自動レビュー (claude-review)\n\n%s\n\n<sub>[claude-review-sha] %s</sub>\n' "$BODY" "$HEAD_SHA" \
+          # レビュー済みマーカーは gate ステップの「レビュー済み判定」が参照する。
+          # 成功時のみ付与する — 失敗した実行に付けると同一コミットの再レビューが
+          # 永久にスキップされてしまう (失敗時は CI の Re-run で再レビューできる) (#85)
+          if [ "$SUBTYPE" = "success" ]; then
+            BODY="$(printf '%s\n\n<sub>[claude-review-sha] %s</sub>' "$BODY" "$HEAD_SHA")"
+          fi
+          printf '## 自動レビュー (claude-review)\n\n%s\n' "$BODY" \
             | jq -Rs '{body: .}' \
             | gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --input - >/dev/null
           echo "レビュー結果を PR #${PR_NUMBER} に投稿しました"
