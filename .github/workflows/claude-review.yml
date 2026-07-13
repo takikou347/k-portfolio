@@ -55,6 +55,16 @@ jobs:
             exit 0
           fi
           PR=$(jq -r .number <<<"$PR_JSON")
+          BASE=$(jq -r .baseRefName <<<"$PR_JSON")
+          # リリース PR (develop → main) は全量レビューをスキップする (#80)。
+          # 含まれる各 PR が develop 向けに個別レビュー済みで全量レビューの必要性が薄く、
+          # 巨大差分だと error_max_turns でジョブが failure になり人間のマージ判断を萎縮させる。
+          # ここで skip すれば後続ステップは全て skip され、review ジョブは failure にならない。
+          if [ "$BASE" = "main" ] && [ "$BRANCH" = "develop" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::リリース PR #$PR (develop → main) は個別 PR でレビュー済みのため全量レビューをスキップ (#80)"
+            exit 0
+          fi
           # CI 完了を待つ間に新しい push があった場合は skip (最新 push の CI 完了時にレビューする)
           if [ "$(jq -r .headRefOid <<<"$PR_JSON")" != "$HEAD_SHA" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -70,7 +80,7 @@ jobs:
             exit 0
           fi
           echo "pr=$PR" >> "$GITHUB_OUTPUT"
-          echo "base=$(jq -r .baseRefName <<<"$PR_JSON")" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         if: steps.gate.outputs.skip != 'true'
         with:
